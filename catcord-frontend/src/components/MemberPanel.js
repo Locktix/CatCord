@@ -10,7 +10,7 @@ const statusColors = {
   offline: "bg-gray-400"
 };
 
-export default function MemberPanel({ serverId }) {
+export default function MemberPanel({ serverId, onStartDM }) {
   const [members, setMembers] = useState([]);
   const [owner, setOwner] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -47,6 +47,12 @@ export default function MemberPanel({ serverId }) {
   const auth = getAuth();
   const currentUser = auth.currentUser;
 
+  const handleStartDM = async (uid) => {
+    if (onStartDM) {
+      onStartDM(uid);
+    }
+  };
+
   if (!serverId) return <div className="w-56 bg-gray-800 h-screen p-4 border-l border-gray-900"></div>;
 
   const renderMember = (uid, isOwner = false) => {
@@ -63,6 +69,14 @@ export default function MemberPanel({ serverId }) {
         </div>
         <span className="font-semibold text-sm">{p.pseudo || uid}</span>
         {isOwner && <span className="text-xs bg-indigo-900 px-2 py-1 rounded ml-2">Owner</span>}
+        {uid !== currentUser?.uid && (
+          <button
+            className="ml-auto text-xs bg-purple-700 hover:bg-purple-800 text-white px-2 py-1 rounded transition"
+            onClick={() => handleStartDM(uid)}
+          >
+            Message privé
+          </button>
+        )}
       </li>
     );
   };

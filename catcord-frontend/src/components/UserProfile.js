@@ -16,6 +16,7 @@ export default function UserProfile() {
   const [loading, setLoading] = useState(true);
   const [avatarFile, setAvatarFile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -35,6 +36,18 @@ export default function UserProfile() {
     if (e.target.files[0]) setAvatarFile(e.target.files[0]);
   };
 
+  const handleDeleteAvatar = async () => {
+    setSaving(true);
+    await setDoc(doc(db, "users", user.uid), {
+      ...profile,
+      avatar: "",
+    });
+    setProfile(p => ({ ...p, avatar: "" }));
+    setAvatarFile(null);
+    setSaving(false);
+    setSuccess("Avatar supprimé !");
+  };
+
   const handleSave = async e => {
     e.preventDefault();
     setSaving(true);
@@ -51,6 +64,7 @@ export default function UserProfile() {
     setProfile(p => ({ ...p, avatar: avatarUrl }));
     setAvatarFile(null);
     setSaving(false);
+    setSuccess("Profil mis à jour !");
   };
 
   if (!user) return null;
@@ -70,6 +84,15 @@ export default function UserProfile() {
             />
             <input type="file" accept="image/*" onChange={handleAvatarChange} className="text-sm" />
           </div>
+          {profile.avatar && (
+            <button type="button" onClick={handleDeleteAvatar} className="text-xs text-red-400 hover:underline w-fit">Supprimer l'avatar</button>
+          )}
+          <input
+            type="email"
+            value={user.email}
+            readOnly
+            className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none opacity-60 cursor-not-allowed"
+          />
           <input
             type="text"
             name="pseudo"
@@ -89,9 +112,11 @@ export default function UserProfile() {
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          <button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded text-white font-semibold">
+          <button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded text-white font-semibold flex items-center justify-center gap-2">
+            {saving && <span className="loader border-2 border-t-2 border-indigo-200 rounded-full w-4 h-4 animate-spin"></span>}
             {saving ? "Enregistrement..." : "Enregistrer"}
           </button>
+          {success && <div className="text-green-400 text-sm text-center">{success}</div>}
         </form>
       )}
     </div>

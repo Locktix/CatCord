@@ -4,12 +4,15 @@ import { collection, addDoc, query, where, onSnapshot, serverTimestamp } from "f
 import ProfileBadge from './ProfileBadge';
 import UserProfile from './UserProfile';
 import ProfileBadgeAvatarOnly from './ProfileBadgeAvatarOnly';
+import SettingsModal from './SettingsModal';
+import { signOut } from 'firebase/auth';
 
-export default function ServerSidebar({ user, selectedServer, setSelectedServer, setSelectedChannel }) {
+export default function ServerSidebar({ user, selectedServer, setSelectedServer, setSelectedChannel, onShowDM }) {
   const [servers, setServers] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [newServerName, setNewServerName] = useState("");
   const [showProfile, setShowProfile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -40,17 +43,26 @@ export default function ServerSidebar({ user, selectedServer, setSelectedServer,
       {/* Overlay profil utilisateur */}
       {showProfile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-          <div className="bg-gray-900 rounded-2xl p-6 shadow-2xl relative max-w-xs w-full">
+          <div className="bg-gray-900 rounded-2xl p-10 shadow-2xl relative max-w-2xl w-full">
             <UserProfile />
             <button className="mt-4 text-xs text-indigo-400 hover:underline absolute top-2 right-4" onClick={() => setShowProfile(false)}>Fermer</button>
           </div>
         </div>
       )}
-      {/* Avatar utilisateur centré en haut, sans texte */}
-      <div className="flex flex-col items-center w-full mb-2">
-        <div className="cursor-pointer" onClick={() => setShowProfile(true)}>
-          <ProfileBadgeAvatarOnly />
-        </div>
+      {showSettings && (
+        <SettingsModal onClose={() => setShowSettings(false)} onLogout={async () => { await signOut(auth); setShowSettings(false); }} />
+      )}
+      {/* Bouton accès DM en haut */}
+      <div className="flex flex-col items-center w-full mb-2 mt-2">
+        <button
+          className="w-12 h-12 flex items-center justify-center bg-purple-700 hover:bg-purple-800 rounded-full text-2xl text-white shadow transition"
+          title="Messages privés"
+          onClick={onShowDM}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25H4.5a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-.659 1.591l-7.5 7.5a2.25 2.25 0 01-3.182 0l-7.5-7.5A2.25 2.25 0 012.25 6.993V6.75" />
+          </svg>
+        </button>
       </div>
       {/* Overlay création serveur */}
       {showForm && (
@@ -92,6 +104,19 @@ export default function ServerSidebar({ user, selectedServer, setSelectedServer,
             {server.name[0]?.toUpperCase()}
           </button>
         ))}
+      </div>
+      {/* Bouton paramètres en bas */}
+      <div className="mt-auto mb-2 flex flex-col items-center w-full">
+        <button
+          className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-indigo-700 rounded-full text-2xl text-white shadow transition"
+          title="Paramètres"
+          onClick={() => setShowSettings(true)}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.01c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.01 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.01 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.01c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.572-1.01c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.01-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.01-2.572c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.01z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
       </div>
     </div>
   );

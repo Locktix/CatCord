@@ -6,16 +6,47 @@ import ServerSidebar from './components/ServerSidebar';
 import ChannelPanel from './components/ChannelPanel';
 import MessagePanel from './components/MessagePanel';
 import MemberPanel from './components/MemberPanel';
+import DMList from './components/DMList';
+import DMPanel from './components/DMPanel';
 
 function App() {
   const [user, setUser] = useState(null);
   const [selectedServer, setSelectedServer] = useState(null);
   const [selectedChannel, setSelectedChannel] = useState(null);
+  const [selectedDM, setSelectedDM] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, setUser);
     return () => unsubscribe();
   }, []);
+
+  const handleStartDM = async (uid) => {
+    // Cherche ou crée une conversation privée entre user.uid et uid
+    if (!user || !uid) return;
+    const members = [user.uid, uid].sort();
+    const convQuery = await import('firebase/firestore').then(({ query, collection, where, getDocs, addDoc }) => {
+      return { query, collection, where, getDocs, addDoc };
+    });
+    const { query, collection, where, getDocs, addDoc } = convQuery;
+    const q = query(collection(require('./firebase').db, 'privateConversations'), where('members', '==', members));
+    const snap = await getDocs(q);
+    let convId;
+    if (!snap.empty) {
+      convId = snap.docs[0].id;
+    } else {
+      const docRef = await addDoc(collection(require('./firebase').db, 'privateConversations'), { members });
+      convId = docRef.id;
+    }
+    setSelectedDM(convId);
+    setSelectedServer(null);
+    setSelectedChannel(null);
+  };
+
+  const handleShowDM = () => {
+    setSelectedDM("show"); // On force l'affichage de la vue DMList même sans DM sélectionné
+    setSelectedServer(null);
+    setSelectedChannel(null);
+  };
 
   if (!user) {
     return (
@@ -40,14 +71,19 @@ function App() {
 
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-800 text-white overflow-hidden min-w-0 flex-nowrap md:flex-nowrap flex-wrap">
-      {/* Sidebar serveurs */}
-      <ServerSidebar user={user} selectedServer={selectedServer} setSelectedServer={setSelectedServer} setSelectedChannel={setSelectedChannel} />
-      {/* Panel salons */}
-      <ChannelPanel serverId={selectedServer} selectedChannel={selectedChannel} setSelectedChannel={setSelectedChannel} />
-      {/* Panel messages */}
-      <MessagePanel channelId={selectedChannel} />
-      {/* Panel membres */}
-      <MemberPanel serverId={selectedServer} />
+      {selectedDM ? (
+        <>
+          <DMList selectedDM={selectedDM === "show" ? null : selectedDM} onSelect={setSelectedDM} onBack={selectedDM === "show" ? () => setSelectedDM(null) : undefined} />
+          {selectedDM !== "show" && <DMPanel dmId={selectedDM} onBack={() => setSelectedDM("show")} />}
+        </>
+      ) : (
+        <>
+          <ServerSidebar user={user} selectedServer={selectedServer} setSelectedServer={setSelectedServer} setSelectedChannel={setSelectedChannel} onShowDM={handleShowDM} />
+          <ChannelPanel serverId={selectedServer} selectedChannel={selectedChannel} setSelectedChannel={setSelectedChannel} />
+          <MessagePanel channelId={selectedChannel} />
+          <MemberPanel serverId={selectedServer} onStartDM={handleStartDM} />
+        </>
+      )}
     </div>
   );
 }
