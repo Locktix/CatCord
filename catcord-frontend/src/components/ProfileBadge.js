@@ -1,0 +1,44 @@
+import React, { useEffect, useState } from "react";
+import { auth, db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
+
+const statusColors = {
+  online: "bg-green-500",
+  busy: "bg-red-500",
+  away: "bg-yellow-400",
+  offline: "bg-gray-400"
+};
+
+export default function ProfileBadge({ onEdit }) {
+  const user = auth.currentUser;
+  const [profile, setProfile] = useState({ pseudo: "", avatar: "", status: "offline" });
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchProfile = async () => {
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if (snap.exists()) setProfile(snap.data());
+    };
+    fetchProfile();
+  }, [user]);
+
+  if (!user) return null;
+
+  return (
+    <div className="flex items-center gap-3 p-2 bg-gray-800 rounded-lg mt-2">
+      <div className="relative">
+        <img
+          src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${user.uid}`}
+          alt="avatar"
+          className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500"
+        />
+        <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-gray-800 ${statusColors[profile.status] || 'bg-gray-400'}`}></span>
+      </div>
+      <div className="flex flex-col">
+        <span className="font-semibold text-sm text-white">{profile.pseudo || user.email}</span>
+        <span className="text-xs text-purple-300">{profile.status ? profile.status : 'offline'}</span>
+      </div>
+      <button onClick={onEdit} className="ml-auto text-indigo-400 hover:underline text-xs">Profil</button>
+    </div>
+  );
+} 
