@@ -18,6 +18,15 @@ export default function UserProfile() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
 
+  const predefinedAvatars = [
+    `https://api.dicebear.com/7.x/thumbs/svg?seed=cat1`,
+    `https://api.dicebear.com/7.x/thumbs/svg?seed=cat2`,
+    `https://api.dicebear.com/7.x/thumbs/svg?seed=cat3`,
+    `https://api.dicebear.com/7.x/thumbs/svg?seed=cat4`,
+    `https://api.dicebear.com/7.x/thumbs/svg?seed=cat5`,
+    `https://api.dicebear.com/7.x/thumbs/svg?seed=cat6`,
+  ];
+
   useEffect(() => {
     if (!user) return;
     const fetchProfile = async () => {
@@ -32,8 +41,22 @@ export default function UserProfile() {
     setProfile({ ...profile, [e.target.name]: e.target.value });
   };
 
-  const handleAvatarChange = e => {
-    if (e.target.files[0]) setAvatarFile(e.target.files[0]);
+  const handleAvatarChange = async (e) => {
+    if (e.target.files[0]) {
+      setSaving(true);
+      const file = e.target.files[0];
+      const avatarRef = ref(storage, `avatars/${user.uid}`);
+      await uploadBytes(avatarRef, file);
+      const avatarUrl = await getDownloadURL(avatarRef);
+      await setDoc(doc(db, "users", user.uid), {
+        ...profile,
+        avatar: avatarUrl,
+      });
+      setProfile(p => ({ ...p, avatar: avatarUrl }));
+      setAvatarFile(null);
+      setSaving(false);
+      setSuccess("Avatar mis à jour !");
+    }
   };
 
   const handleDeleteAvatar = async () => {
@@ -46,6 +69,18 @@ export default function UserProfile() {
     setAvatarFile(null);
     setSaving(false);
     setSuccess("Avatar supprimé !");
+  };
+
+  const handleSelectPredefined = async (url) => {
+    setSaving(true);
+    await setDoc(doc(db, "users", user.uid), {
+      ...profile,
+      avatar: url,
+    });
+    setProfile(p => ({ ...p, avatar: url }));
+    setAvatarFile(null);
+    setSaving(false);
+    setSuccess("Avatar mis à jour !");
   };
 
   const handleSave = async e => {
@@ -70,52 +105,72 @@ export default function UserProfile() {
   if (!user) return null;
 
   return (
-    <div className="bg-gray-900 rounded-xl p-6 shadow-lg w-full max-w-md mx-auto mt-8">
-      <h2 className="text-2xl font-bold mb-4">Mon profil</h2>
+    <div>
       {loading ? (
         <div className="text-purple-200">Chargement...</div>
       ) : (
-        <form onSubmit={handleSave} className="flex flex-col gap-4">
-          <div className="flex items-center gap-4">
-            <img
-              src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${user.uid}`}
-              alt="avatar"
-              className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500"
-            />
-            <input type="file" accept="image/*" onChange={handleAvatarChange} className="text-sm" />
+        <form onSubmit={handleSave} className="flex flex-col gap-6">
+          <div>
+            <label className="block font-semibold mb-1">Avatar</label>
+            <div className="flex items-center gap-4 mb-2">
+              <img
+                src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${user.uid}`}
+                alt="avatar"
+                className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500"
+              />
+              {profile.avatar && (
+                <button type="button" onClick={handleDeleteAvatar} className="text-xs text-red-400 hover:underline w-fit ml-2">Supprimer</button>
+              )}
+            </div>
+            <div className="flex gap-2 flex-wrap mt-2">
+              {predefinedAvatars.map((url, i) => (
+                <button
+                  type="button"
+                  key={url}
+                  onClick={() => handleSelectPredefined(url)}
+                  className={`p-0.5 rounded-full border-2 ${profile.avatar === url ? 'border-indigo-500' : 'border-transparent'} hover:border-indigo-400 transition`}
+                  title={`Avatar ${i + 1}`}
+                  disabled={saving}
+                >
+                  <img src={url} alt={`avatar ${i + 1}`} className="w-10 h-10 rounded-full object-cover" />
+                </button>
+              ))}
+            </div>
           </div>
-          {profile.avatar && (
-            <button type="button" onClick={handleDeleteAvatar} className="text-xs text-red-400 hover:underline w-fit">Supprimer l'avatar</button>
-          )}
-          <input
-            type="email"
-            value={user.email}
-            readOnly
-            className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none opacity-60 cursor-not-allowed"
-          />
-          <input
-            type="text"
-            name="pseudo"
-            placeholder="Pseudo"
-            value={profile.pseudo}
-            onChange={handleChange}
-            className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none"
-            required
-          />
-          <select
-            name="status"
-            value={profile.status}
-            onChange={handleChange}
-            className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none"
-          >
-            {statusOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded text-white font-semibold flex items-center justify-center gap-2">
-            {saving && <span className="loader border-2 border-t-2 border-indigo-200 rounded-full w-4 h-4 animate-spin"></span>}
-            {saving ? "Enregistrement..." : "Enregistrer"}
-          </button>
+          <div>
+            <label className="block font-semibold mb-1">Email</label>
+            <input
+              type="email"
+              value={user.email}
+              readOnly
+              className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none opacity-60 cursor-not-allowed w-full"
+            />
+          </div>
+          <div>
+            <label className="block font-semibold mb-1">Pseudo</label>
+            <input
+              type="text"
+              name="pseudo"
+              placeholder="Pseudo"
+              value={profile.pseudo}
+              onChange={handleChange}
+              className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none w-full"
+              required
+            />
+          </div>
+          <div>
+            <label className="block font-semibold mb-1">Statut</label>
+            <select
+              name="status"
+              value={profile.status}
+              onChange={handleChange}
+              className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none w-full"
+            >
+              {statusOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
           {success && <div className="text-green-400 text-sm text-center">{success}</div>}
         </form>
       )}
