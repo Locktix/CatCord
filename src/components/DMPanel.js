@@ -64,7 +64,7 @@ export default function DMPanel({ dmId, onBack }) {
 
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || !dmId || typeof dmId !== 'string') return;
     
     try {
       await addDoc(collection(db, "privateConversations", dmId, "messages"), {
