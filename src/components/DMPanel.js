@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { auth, db, storage } from "../firebase";
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion, deleteDoc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import CallModal from "./CallModal";
 
@@ -91,6 +91,12 @@ export default function DMPanel({ dmId, onBack }) {
     e.target.value = "";
   };
 
+  const handleDeleteMessage = async (msgId) => {
+    if (window.confirm("Supprimer ce message ?")) {
+      await updateDoc(doc(db, "privateConversations", dmId, "messages", msgId), { deleted: true });
+    }
+  };
+
   if (!dmId) return null;
 
   return (
@@ -110,9 +116,11 @@ export default function DMPanel({ dmId, onBack }) {
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
         {messages.map(msg => (
           <div key={msg.id} className={`flex ${msg.author === user.uid ? 'justify-end' : 'justify-start'}`}>
-            <div className={`px-4 py-2 rounded-lg max-w-xs break-words ${msg.author === user.uid ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-purple-100'}`}>
+            <div className={`px-4 py-2 rounded-lg max-w-xs break-words relative ${msg.author === user.uid ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-purple-100'}`}>
               {msg.type === 'invite' ? (
                 <InviteMessage msg={msg} user={user} dmId={dmId} />
+              ) : msg.deleted ? (
+                <span className="italic text-gray-400">Message supprimé</span>
               ) : msg.fileUrl ? (
                 msg.fileType && msg.fileType.startsWith('image/') ? (
                   <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
@@ -126,6 +134,15 @@ export default function DMPanel({ dmId, onBack }) {
                 )
               ) : (
                 msg.text
+              )}
+              {msg.author === user.uid && (
+                <button
+                  onClick={() => handleDeleteMessage(msg.id)}
+                  className="absolute top-1 right-1 text-xs text-red-300 hover:text-red-500"
+                  title="Supprimer le message"
+                >
+                  🗑️
+                </button>
               )}
             </div>
           </div>
