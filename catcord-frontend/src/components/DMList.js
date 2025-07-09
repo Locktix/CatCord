@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { auth, db } from "../firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, getDoc } from "firebase/firestore";
 
 export default function DMList({ selectedDM, onSelect, onBack }) {
   const user = auth.currentUser;
@@ -39,18 +39,35 @@ export default function DMList({ selectedDM, onSelect, onBack }) {
           {conversations.map(conv => {
             const otherUid = conv.members.find(uid => uid !== user.uid);
             return (
-              <li key={conv.id}>
-                <button
-                  onClick={() => onSelect(conv.id)}
-                  className={`w-full text-left px-3 py-2 rounded flex items-center gap-2 transition text-sm font-medium ${selectedDM === conv.id ? 'bg-purple-700 text-white' : 'bg-gray-900 hover:bg-purple-800 text-purple-200'}`}
-                >
-                  <span className="font-semibold">DM avec {otherUid}</span>
-                </button>
-              </li>
+              <DMListItem
+                key={conv.id}
+                convId={conv.id}
+                otherUid={otherUid}
+                selected={selectedDM === conv.id}
+                onSelect={onSelect}
+              />
             );
           })}
         </ul>
       )}
     </div>
+  );
+}
+
+function DMListItem({ convId, otherUid, selected, onSelect }) {
+  const [otherProfile, setOtherProfile] = React.useState(null);
+  React.useEffect(() => {
+    getDoc(doc(db, "users", otherUid)).then(snap => setOtherProfile(snap.data()));
+  }, [otherUid]);
+  return (
+    <li>
+      <button
+        onClick={() => onSelect(convId)}
+        className={`w-full text-left px-3 py-2 rounded flex items-center gap-2 transition text-sm font-medium ${selected ? 'bg-purple-700 text-white' : 'bg-gray-900 hover:bg-purple-800 text-purple-200'}`}
+      >
+        <img src={otherProfile?.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${otherUid}`} alt="avatar" className="w-6 h-6 rounded-full object-cover mr-2" />
+        <span className="font-semibold">{otherProfile ? `${otherProfile.pseudo}${otherProfile.discriminator ? '#' + otherProfile.discriminator : ''}` : '...'}</span>
+      </button>
+    </li>
   );
 } 

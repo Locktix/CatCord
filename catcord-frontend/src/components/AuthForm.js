@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { auth } from "../firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { doc, setDoc, getDocs, query, collection, where } from "firebase/firestore";
+import { db } from "../firebase";
 
 export default function AuthForm({ user, onAuth }) {
   const [email, setEmail] = useState("");
@@ -15,7 +17,25 @@ export default function AuthForm({ user, onAuth }) {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        // Génère un discriminator unique à 4 chiffres pour ce pseudo
+        let discriminator;
+        let unique = false;
+        const pseudo = email.split("@")[0];
+        while (!unique) {
+          discriminator = ("000" + Math.floor(Math.random() * 10000)).slice(-4);
+          const q = query(collection(db, "users"), where("pseudo", "==", pseudo), where("discriminator", "==", discriminator));
+          const snap = await getDocs(q);
+          if (snap.empty) unique = true;
+        }
+        await setDoc(doc(db, "users", cred.user.uid), {
+          email,
+          pseudo,
+          discriminator,
+          friends: [],
+          avatar: "",
+          status: "online"
+        });
       }
       onAuth && onAuth();
     } catch (err) {

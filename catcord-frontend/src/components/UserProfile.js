@@ -157,6 +157,9 @@ export default function UserProfile() {
               className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none w-full"
               required
             />
+            {profile.discriminator && (
+              <div className="text-xs text-purple-300 mt-1">#{profile.discriminator}</div>
+            )}
           </div>
           <div>
             <label className="block font-semibold mb-1">Statut</label>

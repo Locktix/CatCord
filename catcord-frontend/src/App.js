@@ -42,6 +42,9 @@ function App() {
     setSelectedChannel(null);
   };
 
+  // Expose la fonction globale pour ouvrir un DM depuis n'importe où
+  window.openDMWithUser = handleStartDM;
+
   const handleShowDM = () => {
     setSelectedDM("show"); // On force l'affichage de la vue DMList même sans DM sélectionné
     setSelectedServer(null);

@@ -58,7 +58,7 @@ export default function DMPanel({ dmId, onBack }) {
         {otherUser && (
           <>
             <img src={otherUser.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${otherUser.uid}`} alt="avatar" className="w-8 h-8 rounded-full object-cover border-2 border-indigo-500" />
-            <span>{otherUser.pseudo || otherUser.uid}</span>
+            <span>DM avec {otherUser.pseudo ? `${otherUser.pseudo}${otherUser.discriminator ? '#' + otherUser.discriminator : ''}` : otherUser.uid}</span>
           </>
         )}
       </div>
