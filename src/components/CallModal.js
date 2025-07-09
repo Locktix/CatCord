@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { db, auth } from "../firebase";
 import { doc, setDoc, onSnapshot, deleteDoc } from "firebase/firestore";
 
-export default function CallModal({ open, onClose, otherUser, dmId }) {
+export default function CallModal({ open, onClose, otherUser, dmId, isReceiver = false }) {
   const [callState, setCallState] = useState("connecting"); // connecting, in-call, ended
   const [error, setError] = useState(null);
   const localVideoRef = useRef();
@@ -13,15 +13,83 @@ export default function CallModal({ open, onClose, otherUser, dmId }) {
   const callDocId = `${dmId}_${user.uid}_${otherUser.uid}`;
 
   // Utilitaires Firestore pour la signalisation
-  const offerDoc = doc(db, "calls", `${dmId}_offer`);
-  const answerDoc = doc(db, "calls", `${dmId}_answer`);
+  const offerDoc = doc(db, "calls", "global_offers");
+  const answerDoc = doc(db, "calls", "global_answers");
 
   useEffect(() => {
     if (!open) return;
-    checkPermissionsAndStartCall();
+    
+    if (isReceiver) {
+      // Si c'est le receveur, attendre l'offre
+      waitForOffer();
+    } else {
+      // Si c'est l'initiateur, démarrer l'appel
+      checkPermissionsAndStartCall();
+    }
+    
     return () => cleanup();
     // eslint-disable-next-line
   }, [open]);
+
+  async function waitForOffer() {
+    setCallState("waiting");
+    
+    // Écouter l'offre de l'initiateur
+    const unsubOffer = onSnapshot(offerDoc, async (snap) => {
+      const data = snap.data();
+      if (data && data.to === user.uid && data.from === otherUser.uid) {
+        // Accepter l'appel automatiquement
+        await acceptCall(data.offer);
+      }
+    });
+    
+    // Écouter les réponses
+    const unsubAnswer = onSnapshot(answerDoc, async (snap) => {
+      const data = snap.data();
+      if (data && data.to === user.uid && data.from === otherUser.uid) {
+        if (data.answer === "declined") {
+          setError("L'appel a été refusé");
+          setCallState("ended");
+        }
+      }
+    });
+    
+    pcRef.current._unsubOffer = unsubOffer;
+    pcRef.current._unsubAnswer = unsubAnswer;
+  }
+
+  async function acceptCall(offer) {
+    try {
+      // Obtenir les permissions
+      const localStream = await getLocalStream();
+      
+      // Créer la connexion WebRTC
+      const pc = new window.RTCPeerConnection();
+      pcRef.current = pc;
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      
+      // Gérer les événements
+      setupPeerConnection(pc);
+      
+      // Accepter l'offre
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      
+      // Envoyer la réponse
+      await setDoc(answerDoc, { 
+        answer: answer, 
+        from: user.uid, 
+        to: otherUser.uid,
+        dmId: dmId 
+      });
+      
+      setCallState("in-call");
+    } catch (err) {
+      setError("Erreur lors de l'acceptation de l'appel: " + err.message);
+      setCallState("ended");
+    }
+  }
 
   async function checkPermissionsAndStartCall() {
     try {
@@ -42,22 +110,34 @@ export default function CallModal({ open, onClose, otherUser, dmId }) {
     }
   }
 
+  async function getLocalStream() {
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    } catch (videoError) {
+      console.log("Vidéo non disponible, tentative audio seul:", videoError);
+      return await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    }
+  }
+
+  function setupPeerConnection(pc) {
+    // ICE candidates locaux
+    pc.onicecandidate = async (event) => {
+      if (event.candidate) {
+        await setDoc(doc(db, "calls", `${callDocId}_ice_${user.uid}`), { candidate: event.candidate.toJSON() });
+      }
+    };
+
+    // Flux distant
+    pc.ontrack = (event) => {
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = event.streams[0];
+    };
+  }
+
   async function startCall() {
     setCallState("connecting");
     try {
-      // 1. Obtenir le flux local - essayer d'abord audio+vidéo, puis audio seul
-      let localStream;
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-      } catch (videoError) {
-        console.log("Vidéo non disponible, tentative audio seul:", videoError);
-        try {
-          localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        } catch (audioError) {
-          throw new Error("Impossible d'accéder au microphone et à la caméra. Vérifiez les permissions de votre navigateur.");
-        }
-      }
-      
+      // 1. Obtenir le flux local
+      const localStream = await getLocalStream();
       localStreamRef.current = localStream;
       if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
 
@@ -66,33 +146,35 @@ export default function CallModal({ open, onClose, otherUser, dmId }) {
       pcRef.current = pc;
       localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-      // 3. ICE candidates locaux
-      pc.onicecandidate = async (event) => {
-        if (event.candidate) {
-          await setDoc(doc(db, "calls", `${callDocId}_ice_${user.uid}`), { candidate: event.candidate.toJSON() });
-        }
-      };
+      // 3. Configurer la connexion
+      setupPeerConnection(pc);
 
-      // 4. Flux distant
-      pc.ontrack = (event) => {
-        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = event.streams[0];
-      };
-
-      // 5. Créer et envoyer l'offre
+      // 4. Créer et envoyer l'offre
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      await setDoc(offerDoc, { offer: offer, from: user.uid, to: otherUser.uid });
+      await setDoc(offerDoc, { 
+        offer: offer, 
+        from: user.uid, 
+        to: otherUser.uid,
+        fromName: user.displayName || user.email,
+        dmId: dmId 
+      });
 
-      // 6. Écouter la réponse
+      // 5. Écouter la réponse
       const unsubAnswer = onSnapshot(answerDoc, async (snap) => {
         const data = snap.data();
-        if (data && data.answer) {
-          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-          setCallState("in-call");
+        if (data && data.to === user.uid && data.from === otherUser.uid) {
+          if (data.answer === "declined") {
+            setError("L'appel a été refusé");
+            setCallState("ended");
+          } else if (data.answer && data.answer.type) {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+            setCallState("in-call");
+          }
         }
       });
 
-      // 7. Écouter les ICE candidates distants
+      // 6. Écouter les ICE candidates distants
       const unsubRemoteIce = onSnapshot(doc(db, "calls", `${callDocId}_ice_${otherUser.uid}`), async (snap) => {
         const data = snap.data();
         if (data && data.candidate) {

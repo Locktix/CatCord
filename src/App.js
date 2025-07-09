@@ -8,6 +8,7 @@ import MessagePanel from './components/MessagePanel';
 import MemberPanel from './components/MemberPanel';
 import DMList from './components/DMList';
 import DMPanel from './components/DMPanel';
+import CallNotification from './components/CallNotification';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -87,6 +88,7 @@ function App() {
           <MemberPanel serverId={selectedServer} onStartDM={handleStartDM} />
         </>
       )}
+      <CallNotification />
     </div>
   );
 }
