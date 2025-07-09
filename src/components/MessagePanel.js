@@ -3,7 +3,7 @@ import { db } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
 import MessageList from "./MessageList";
 
-export default function MessagePanel({ channelId }) {
+export default function MessagePanel({ channelId, selectedServer }) {
   const [channel, setChannel] = useState(null);
 
   useEffect(() => {
@@ -16,7 +16,13 @@ export default function MessagePanel({ channelId }) {
     fetchChannel();
   }, [channelId]);
 
-  if (!channelId)
+  if (!channelId) {
+    // Si on est sur un serveur mais pas de salon sélectionné
+    if (selectedServer) {
+      return <div className="flex-1 h-screen flex items-center justify-center bg-gray-900 bg-opacity-60 text-purple-200 text-xl">Sélectionne un salon</div>;
+    }
+    
+    // Sinon, écran de bienvenue
     return (
       <div className="flex-1 h-screen flex flex-col items-center justify-center bg-gray-900 bg-opacity-60 text-white">
         <div className="text-center">
@@ -43,6 +49,7 @@ export default function MessagePanel({ channelId }) {
         </div>
       </div>
     );
+  }
 
   return (
     <div className="flex-1 h-screen flex flex-col bg-gray-900 bg-opacity-60 min-w-0">
