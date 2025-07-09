@@ -56,9 +56,15 @@ export default function DMList({ selectedDM, onSelect, onBack }) {
 
 function DMListItem({ convId, otherUid, selected, onSelect }) {
   const [otherProfile, setOtherProfile] = React.useState(null);
+  
   React.useEffect(() => {
+    if (!otherUid) return; // Protection contre otherUid undefined
     getDoc(doc(db, "users", otherUid)).then(snap => setOtherProfile(snap.data()));
   }, [otherUid]);
+  
+  // Si otherUid n'existe pas, on ne rend rien
+  if (!otherUid) return null;
+  
   return (
     <li>
       <button

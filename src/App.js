@@ -10,6 +10,7 @@ import DMList from './components/DMList';
 import DMPanel from './components/DMPanel';
 import CallNotification from './components/CallNotification';
 import LoadingScreen from './components/LoadingScreen';
+import { doc, getDoc } from 'firebase/firestore';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -19,6 +20,7 @@ function App() {
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [selectedDM, setSelectedDM] = useState(null);
   const [dmConversations, setDmConversations] = useState([]);
+  const [friends, setFriends] = useState([]);
 
   useEffect(() => {
     const startTime = Date.now();
@@ -57,6 +59,16 @@ function App() {
       const q = query(collection(require('./firebase').db, 'privateConversations'), where('members', 'array-contains', user.uid));
       const unsub = onSnapshot(q, (snap) => {
         setDmConversations(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+      return unsub;
+    });
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    import('firebase/firestore').then(({ doc, onSnapshot }) => {
+      const unsub = onSnapshot(doc(require('./firebase').db, 'users', user.uid), snap => {
+        setFriends(snap.data()?.friends || []);
       });
       return unsub;
     });
@@ -127,7 +139,19 @@ function App() {
           {selectedDM !== "show" && dmConversations.some(conv => conv.id === selectedDM) ? (
             <DMPanel dmId={selectedDM} onBack={() => setSelectedDM("show")} />
           ) : selectedDM !== "show" ? (
-            <div className="flex-1 flex items-center justify-center text-purple-300 text-lg">Aucune conversation sélectionnée ou cette conversation n'existe plus.</div>
+            <div className="flex-1 flex flex-col items-center justify-center text-purple-300 text-lg p-8">
+              <div className="mb-6 text-2xl font-bold">Pas de discussion privée actuellement</div>
+              <div className="mb-4 text-purple-200">Démarre une conversation avec un ami :</div>
+              <div className="flex flex-col gap-3 w-full max-w-xs">
+                {friends.length === 0 ? (
+                  <div className="text-purple-400">Tu n'as pas encore d'amis.</div>
+                ) : (
+                  friends.map(uid => (
+                    <FriendDMStarter key={uid} uid={uid} onStartDM={handleStartDM} />
+                  ))
+                )}
+              </div>
+            </div>
           ) : null}
         </>
       ) : (
@@ -140,6 +164,24 @@ function App() {
       )}
       <CallNotification />
     </div>
+  );
+}
+
+function FriendDMStarter({ uid, onStartDM }) {
+  const [profile, setProfile] = useState(null);
+  useEffect(() => {
+    getDoc(doc(require('./firebase').db, 'users', uid)).then(snap => setProfile(snap.data()));
+  }, [uid]);
+  if (!profile) return null;
+  return (
+    <button
+      onClick={() => onStartDM(uid)}
+      className="flex items-center gap-3 bg-gray-800 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow transition"
+    >
+      <img src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${uid}`} alt="avatar" className="w-8 h-8 rounded-full object-cover border-2 border-indigo-500" />
+      <span className="font-semibold">{profile.pseudo}{profile.discriminator ? `#${profile.discriminator}` : ''}</span>
+      <span className="ml-auto bg-indigo-600 hover:bg-indigo-500 text-xs px-3 py-1 rounded text-white font-semibold">DM</span>
+    </button>
   );
 }
 
