@@ -15,11 +15,23 @@ function App() {
   const [selectedServer, setSelectedServer] = useState(null);
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [selectedDM, setSelectedDM] = useState(null);
+  const [dmConversations, setDmConversations] = useState([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, setUser);
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    import('firebase/firestore').then(({ collection, query, where, onSnapshot }) => {
+      const q = query(collection(require('./firebase').db, 'privateConversations'), where('members', 'array-contains', user.uid));
+      const unsub = onSnapshot(q, (snap) => {
+        setDmConversations(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+      return unsub;
+    });
+  }, [user]);
 
   const handleStartDM = async (uid) => {
     // Cherche ou crée une conversation privée entre user.uid et uid
@@ -78,7 +90,11 @@ function App() {
       {selectedDM ? (
         <>
           <DMList selectedDM={selectedDM === "show" ? null : selectedDM} onSelect={setSelectedDM} onBack={selectedDM === "show" ? () => setSelectedDM(null) : undefined} />
-          {selectedDM !== "show" && <DMPanel dmId={selectedDM} onBack={() => setSelectedDM("show")} />}
+          {selectedDM !== "show" && dmConversations.some(conv => conv.id === selectedDM) ? (
+            <DMPanel dmId={selectedDM} onBack={() => setSelectedDM("show")} />
+          ) : selectedDM !== "show" ? (
+            <div className="flex-1 flex items-center justify-center text-purple-300 text-lg">Aucune conversation sélectionnée ou cette conversation n'existe plus.</div>
+          ) : null}
         </>
       ) : (
         <>
