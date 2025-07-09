@@ -13,6 +13,9 @@ export default function DMPanel({ dmId, onBack }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const messagesEndRef = useRef(null);
   const [showCall, setShowCall] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (!dmId) return;
@@ -97,11 +100,22 @@ export default function DMPanel({ dmId, onBack }) {
     }
   };
 
+  // Supprimer la conversation (pour l'utilisateur courant)
+  const handleDeleteConversation = async () => {
+    setDeleting(true);
+    await updateDoc(doc(db, "privateConversations", dmId), {
+      members: arrayUnion("__deleted__"),
+      members: (otherUser ? [otherUser.uid] : [])
+    });
+    setDeleting(false);
+    window.location.reload();
+  };
+
   if (!dmId) return null;
 
   return (
     <div className="flex-1 h-screen flex flex-col bg-gray-900 bg-opacity-60 min-w-0">
-      <div className="px-6 py-4 border-b border-gray-800 text-lg font-bold flex items-center gap-3 bg-gray-900 bg-opacity-80">
+      <div className="px-6 py-4 border-b border-gray-800 text-lg font-bold flex items-center gap-3 bg-gray-900 bg-opacity-80 relative">
         {onBack && (
           <button onClick={onBack} className="mr-2 text-purple-300 hover:text-white">←</button>
         )}
@@ -111,6 +125,30 @@ export default function DMPanel({ dmId, onBack }) {
             <span>DM avec {otherUser.pseudo ? `${otherUser.pseudo}${otherUser.discriminator ? '#' + otherUser.discriminator : ''}` : otherUser.uid}</span>
             <button onClick={() => setShowCall(true)} className="ml-4 px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-white text-sm font-semibold">📞 Appeler</button>
           </>
+        )}
+        {/* Bouton settings */}
+        <button
+          className="absolute top-4 right-6 text-xl text-indigo-300 hover:text-white"
+          onClick={() => setShowSettings(v => !v)}
+          title="Paramètres de la conversation"
+        >⚙️</button>
+        {showSettings && (
+          <div className="absolute top-12 right-6 bg-gray-900 border border-gray-700 rounded shadow-lg z-50 min-w-[220px]">
+            <button
+              className="w-full text-left px-4 py-3 hover:bg-gray-800 text-red-400 font-semibold rounded-t"
+              onClick={() => { setShowSettings(false); setShowDeleteConfirm(true); }}
+              disabled={deleting}
+            >
+              Supprimer la conversation
+            </button>
+            <button
+              className="w-full text-left px-4 py-3 hover:bg-gray-800 text-purple-200 font-semibold rounded-b"
+              onClick={() => setShowSettings(false)}
+            >
+              Fermer
+            </button>
+            {/* Ici tu peux ajouter d'autres options utiles */}
+          </div>
         )}
       </div>
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
@@ -179,6 +217,30 @@ export default function DMPanel({ dmId, onBack }) {
           otherUser={otherUser}
           dmId={dmId}
         />
+      )}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+          <div className="bg-gray-900 rounded-xl p-8 shadow-xl flex flex-col items-center max-w-sm w-full">
+            <div className="text-lg text-red-400 font-bold mb-4">Supprimer la conversation ?</div>
+            <div className="text-purple-200 mb-6 text-center">Cette conversation disparaîtra de votre liste, mais pas de celle de l'autre utilisateur. Cette action est irréversible.</div>
+            <div className="flex gap-4 mt-2">
+              <button
+                onClick={handleDeleteConversation}
+                disabled={deleting}
+                className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-bold"
+              >
+                {deleting ? "Suppression..." : "Supprimer"}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded text-white"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
