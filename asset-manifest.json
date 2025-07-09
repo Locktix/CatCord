@@ -1,16 +1,16 @@
 {
   "files": {
-    "main.css": "/CatCord/static/css/main.97a3999c.css",
-    "main.js": "/CatCord/static/js/main.c6502886.js",
+    "main.css": "/CatCord/static/css/main.378b6367.css",
+    "main.js": "/CatCord/static/js/main.8a05a2ad.js",
     "static/js/488.798fd8a7.chunk.js": "/CatCord/static/js/488.798fd8a7.chunk.js",
     "service-worker.js": "/CatCord/service-worker.js",
     "index.html": "/CatCord/index.html",
-    "main.97a3999c.css.map": "/CatCord/static/css/main.97a3999c.css.map",
-    "main.c6502886.js.map": "/CatCord/static/js/main.c6502886.js.map",
+    "main.378b6367.css.map": "/CatCord/static/css/main.378b6367.css.map",
+    "main.8a05a2ad.js.map": "/CatCord/static/js/main.8a05a2ad.js.map",
     "488.798fd8a7.chunk.js.map": "/CatCord/static/js/488.798fd8a7.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.97a3999c.css",
-    "static/js/main.c6502886.js"
+    "static/css/main.378b6367.css",
+    "static/js/main.8a05a2ad.js"
   ]
 }
