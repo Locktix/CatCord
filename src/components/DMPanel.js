@@ -111,6 +111,33 @@ export default function DMPanel({ dmId, onBack }) {
     e.target.value = "";
   };
 
+  const downloadFile = async (fileUrl, fileName) => {
+    try {
+      // Créer un lien temporaire pour le téléchargement
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      
+      // Créer un URL pour le blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Créer un élément <a> temporaire
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      
+      // Déclencher le téléchargement
+      document.body.appendChild(link);
+      link.click();
+      
+      // Nettoyer
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Erreur lors du téléchargement:", error);
+      alert("Erreur lors du téléchargement du fichier");
+    }
+  };
+
   const handleDeleteMessage = async (msgId) => {
     if (window.confirm("Supprimer ce message ?")) {
       try {
@@ -196,14 +223,22 @@ export default function DMPanel({ dmId, onBack }) {
                 <InviteMessage msg={msg} user={user} dmId={dmId} />
               ) : msg.fileUrl ? (
                 msg.fileType && msg.fileType.startsWith('image/') ? (
-                  <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
+                  <div>
                     <img src={msg.fileUrl} alt={msg.fileName} className="max-w-[200px] max-h-[200px] rounded mb-1" />
-                    <div className="text-xs text-purple-200 underline">{msg.fileName}</div>
-                  </a>
+                    <button 
+                      onClick={() => downloadFile(msg.fileUrl, msg.fileName)}
+                      className="text-xs text-indigo-300 hover:text-indigo-200 underline cursor-pointer"
+                    >
+                      📥 {msg.fileName}
+                    </button>
+                  </div>
                 ) : (
-                  <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-300 underline">
-                    📎 {msg.fileName}
-                  </a>
+                  <button 
+                    onClick={() => downloadFile(msg.fileUrl, msg.fileName)}
+                    className="text-indigo-300 hover:text-indigo-200 underline cursor-pointer"
+                  >
+                    📎 📥 {msg.fileName}
+                  </button>
                 )
               ) : (
                 msg.text
