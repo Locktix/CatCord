@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { auth, db } from "../firebase";
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 
 export default function DMPanel({ dmId, onBack }) {
   const user = auth.currentUser;
@@ -66,7 +66,11 @@ export default function DMPanel({ dmId, onBack }) {
         {messages.map(msg => (
           <div key={msg.id} className={`flex ${msg.author === user.uid ? 'justify-end' : 'justify-start'}`}>
             <div className={`px-4 py-2 rounded-lg max-w-xs break-words ${msg.author === user.uid ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-purple-100'}`}>
-              {msg.text}
+              {msg.type === 'invite' ? (
+                <InviteMessage msg={msg} user={user} dmId={dmId} />
+              ) : (
+                msg.text
+              )}
             </div>
           </div>
         ))}
@@ -82,6 +86,69 @@ export default function DMPanel({ dmId, onBack }) {
         />
         <button type="submit" className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded text-white font-semibold">Envoyer</button>
       </form>
+    </div>
+  );
+}
+
+function InviteMessage({ msg, user, dmId }) {
+  const [accepted, setAccepted] = React.useState(msg.status === 'accepted');
+  const [refused, setRefused] = React.useState(msg.status === 'refused');
+  const [loading, setLoading] = React.useState(false);
+  const [serverName, setServerName] = React.useState('');
+  
+  React.useEffect(() => {
+    getDoc(doc(db, 'servers', msg.serverId)).then(snap => setServerName(snap.data()?.name || 'Serveur'));
+  }, [msg.serverId]);
+  
+  const handleAccept = async () => {
+    setLoading(true);
+    try {
+      // Ajouter l'utilisateur au serveur
+      await updateDoc(doc(db, 'servers', msg.serverId), {
+        members: arrayUnion(user.uid)
+      });
+      // Marquer l'invitation comme acceptée
+      await updateDoc(doc(db, 'privateConversations', dmId, 'messages', msg.id), { 
+        status: 'accepted' 
+      });
+      setAccepted(true);
+    } catch (error) {
+      console.error('Erreur lors de l\'acceptation:', error);
+    }
+    setLoading(false);
+  };
+  
+  const handleRefuse = async () => {
+    setLoading(true);
+    try {
+      // Marquer l'invitation comme refusée
+      await updateDoc(doc(db, 'privateConversations', dmId, 'messages', msg.id), { 
+        status: 'refused' 
+      });
+      setRefused(true);
+    } catch (error) {
+      console.error('Erreur lors du refus:', error);
+    }
+    setLoading(false);
+  };
+  
+  // Vérifier si l'utilisateur actuel est l'expéditeur de l'invitation
+  const isSender = msg.from === user.uid;
+  
+  if (accepted) return <span className="text-green-400">Invitation acceptée !</span>;
+  if (refused) return <span className="text-red-400">Invitation refusée.</span>;
+  
+  return (
+    <div>
+      <div className="mb-2">Invitation à rejoindre <span className="font-bold text-indigo-300">{serverName}</span></div>
+      {isSender ? (
+        <div className="text-purple-300 text-sm">En attente de réponse...</div>
+      ) : (
+        <div className="flex gap-2">
+          <button onClick={handleAccept} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-semibold">Accepter</button>
+          <button onClick={handleRefuse} disabled={loading} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-semibold">Refuser</button>
+        </div>
+      )}
     </div>
   );
 } 
