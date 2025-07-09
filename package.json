@@ -6,6 +6,7 @@
   "dependencies": {
     "cra-template-pwa": "2.0.0",
     "firebase": "^11.10.0",
+    "fs-extra": "^11.3.0",
     "gh-pages": "^6.3.0",
     "package": "^1.0.1",
     "react": "^19.1.0",
@@ -14,7 +15,9 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "set \"GENERATE_SOURCEMAP=false\" && react-scripts build",
+    "build:silent": "set \"GENERATE_SOURCEMAP=false\" && set \"CI=false\" && react-scripts build --silent",
+    "build:dev": "node build-dev.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",

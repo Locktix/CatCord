@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { auth, db, storage } from "../firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import CallModal from "./CallModal";
 
 export default function DMPanel({ dmId, onBack }) {
   const user = auth.currentUser;
@@ -11,6 +12,7 @@ export default function DMPanel({ dmId, onBack }) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const messagesEndRef = useRef(null);
+  const [showCall, setShowCall] = useState(false);
 
   useEffect(() => {
     if (!dmId) return;
@@ -101,6 +103,7 @@ export default function DMPanel({ dmId, onBack }) {
           <>
             <img src={otherUser.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${otherUser.uid}`} alt="avatar" className="w-8 h-8 rounded-full object-cover border-2 border-indigo-500" />
             <span>DM avec {otherUser.pseudo ? `${otherUser.pseudo}${otherUser.discriminator ? '#' + otherUser.discriminator : ''}` : otherUser.uid}</span>
+            <button onClick={() => setShowCall(true)} className="ml-4 px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-white text-sm font-semibold">📞 Appeler</button>
           </>
         )}
       </div>
@@ -152,6 +155,14 @@ export default function DMPanel({ dmId, onBack }) {
           </div>
         )}
       </form>
+      {showCall && otherUser && (
+        <CallModal
+          open={showCall}
+          onClose={() => setShowCall(false)}
+          otherUser={otherUser}
+          dmId={dmId}
+        />
+      )}
     </div>
   );
 }
