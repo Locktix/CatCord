@@ -14,11 +14,11 @@ export default function DMPanel({ dmId, onBack }) {
   const messagesEndRef = useRef(null);
   const [showCall, setShowCall] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [uploadTaskRef, setUploadTaskRef] = useState(null);
   const [showUploadCanceled, setShowUploadCanceled] = useState(false);
   const [conversationExists, setConversationExists] = useState(true);
+  const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState(null);
 
   useEffect(() => {
     if (!dmId || typeof dmId !== 'string') {
@@ -169,41 +169,42 @@ export default function DMPanel({ dmId, onBack }) {
   };
 
   const handleDeleteMessage = async (msgId) => {
-    if (window.confirm("Supprimer ce message ?")) {
-      try {
-        // Récupérer le message pour obtenir l'URL du fichier
-        const messageDoc = await getDoc(doc(db, "privateConversations", dmId, "messages", msgId));
-        const messageData = messageDoc.data();
-        
-        // Supprimer le fichier de Firebase Storage si il existe
-        if (messageData.fileUrl) {
-          try {
-            const fileRef = ref(storage, messageData.fileUrl);
-            await deleteObject(fileRef);
-          } catch (storageError) {
-            console.log("Fichier déjà supprimé ou introuvable:", storageError);
-          }
+    setMessageToDelete(msgId);
+    setShowDeleteMessageConfirm(true);
+  };
+
+  const confirmDeleteMessage = async () => {
+    if (!messageToDelete) return;
+    
+    try {
+      // Récupérer le message pour obtenir l'URL du fichier
+      const messageDoc = await getDoc(doc(db, "privateConversations", dmId, "messages", messageToDelete));
+      const messageData = messageDoc.data();
+      
+      // Supprimer le fichier de Firebase Storage si il existe
+      if (messageData.fileUrl) {
+        try {
+          const fileRef = ref(storage, messageData.fileUrl);
+          await deleteObject(fileRef);
+        } catch (storageError) {
+          console.log("Fichier déjà supprimé ou introuvable:", storageError);
         }
-        
-        // Supprimer le message de Firestore
-        await deleteDoc(doc(db, "privateConversations", dmId, "messages", msgId));
-      } catch (error) {
-        console.error("Erreur lors de la suppression:", error);
-        alert("Erreur lors de la suppression du message");
       }
+      
+      // Supprimer le message de Firestore
+      await deleteDoc(doc(db, "privateConversations", dmId, "messages", messageToDelete));
+      
+      setShowDeleteMessageConfirm(false);
+      setMessageToDelete(null);
+    } catch (error) {
+      console.error("Erreur lors de la suppression:", error);
+      alert("Erreur lors de la suppression du message");
+      setShowDeleteMessageConfirm(false);
+      setMessageToDelete(null);
     }
   };
 
-  // Supprimer la conversation (pour l'utilisateur courant)
-  const handleDeleteConversation = async () => {
-    setDeleting(true);
-    await updateDoc(doc(db, "privateConversations", dmId), {
-      members: arrayUnion("__deleted__"),
-      members: (otherUser ? [otherUser.uid] : [])
-    });
-    setDeleting(false);
-    window.location.reload();
-  };
+
 
   if (!dmId || typeof dmId !== 'string' || !conversationExists) return (
     <div className="flex-1 flex items-center justify-center text-purple-300 text-lg">
@@ -233,14 +234,7 @@ export default function DMPanel({ dmId, onBack }) {
         {showSettings && (
           <div className="absolute top-12 right-6 bg-gray-900 border border-gray-700 rounded shadow-lg z-50 min-w-[220px]">
             <button
-              className="w-full text-left px-4 py-3 hover:bg-gray-800 text-red-400 font-semibold rounded-t"
-              onClick={() => { setShowSettings(false); setShowDeleteConfirm(true); }}
-              disabled={deleting}
-            >
-              Supprimer la conversation
-            </button>
-            <button
-              className="w-full text-left px-4 py-3 hover:bg-gray-800 text-purple-200 font-semibold rounded-b"
+              className="w-full text-left px-4 py-3 hover:bg-gray-800 text-purple-200 font-semibold"
               onClick={() => setShowSettings(false)}
             >
               Fermer
@@ -335,30 +329,7 @@ export default function DMPanel({ dmId, onBack }) {
           dmId={dmId}
         />
       )}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-          <div className="bg-gray-900 rounded-xl p-8 shadow-xl flex flex-col items-center max-w-sm w-full">
-            <div className="text-lg text-red-400 font-bold mb-4">Supprimer la conversation ?</div>
-            <div className="text-purple-200 mb-6 text-center">Cette conversation disparaîtra de votre liste, mais pas de celle de l'autre utilisateur. Cette action est irréversible.</div>
-            <div className="flex gap-4 mt-2">
-              <button
-                onClick={handleDeleteConversation}
-                disabled={deleting}
-                className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-bold"
-              >
-                {deleting ? "Suppression..." : "Supprimer"}
-              </button>
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={deleting}
-                className="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded text-white"
-              >
-                Annuler
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
       {showUploadCanceled && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
           <div className="bg-gray-900 rounded-xl p-8 shadow-xl flex flex-col items-center max-w-sm w-full">
@@ -368,6 +339,31 @@ export default function DMPanel({ dmId, onBack }) {
               onClick={() => setShowUploadCanceled(false)}
               className="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded text-white font-bold"
             >OK</button>
+          </div>
+        </div>
+      )}
+      {showDeleteMessageConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+          <div className="bg-gray-900 rounded-xl p-8 shadow-xl flex flex-col items-center max-w-sm w-full">
+            <div className="text-lg text-red-400 font-bold mb-4">Supprimer le message ?</div>
+            <div className="text-purple-200 mb-6 text-center">Ce message sera définitivement supprimé. Cette action est irréversible.</div>
+            <div className="flex gap-4 mt-2">
+              <button
+                onClick={confirmDeleteMessage}
+                className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-bold"
+              >
+                Supprimer
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteMessageConfirm(false);
+                  setMessageToDelete(null);
+                }}
+                className="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded text-white"
+              >
+                Annuler
+              </button>
+            </div>
           </div>
         </div>
       )}
