@@ -81,7 +81,7 @@ export default function DMPanel({ dmId, onBack }) {
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    if (!file) return;
+    if (!file || !dmId || typeof dmId !== 'string') return;
     setUploading(true);
     setUploadProgress(0);
     try {
