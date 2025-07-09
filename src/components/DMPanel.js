@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { auth, db, storage } from "../firebase";
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion, deleteDoc, where, getDocs } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion, deleteDoc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import CallModal from "./CallModal";
 
@@ -44,35 +44,17 @@ export default function DMPanel({ dmId, onBack }) {
   const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
-    await addDoc(collection(db, "privateConversations", dmId, "messages"), {
-      text: input,
-      author: user.uid,
-      createdAt: serverTimestamp(),
-    });
-    setInput("");
-  };
-
-  // Fonction pour calculer le hash d'un fichier
-  const calculateFileHash = async (file) => {
-    const buffer = await file.arrayBuffer();
-    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  };
-
-  // Fonction pour vérifier si un fichier existe déjà
-  const checkExistingFile = async (fileHash) => {
+    
     try {
-      const existingFilesQuery = query(
-        collection(db, "fileHashes"),
-        where("hash", "==", fileHash),
-        where("dmId", "==", dmId)
-      );
-      const existingFiles = await getDocs(existingFilesQuery);
-      return existingFiles.docs[0]?.data()?.fileUrl || null;
+      await addDoc(collection(db, "privateConversations", dmId, "messages"), {
+        text: input,
+        author: user.uid,
+        createdAt: serverTimestamp(),
+      });
+      setInput("");
     } catch (error) {
-      console.log("Erreur lors de la vérification du fichier existant:", error);
-      return null;
+      console.error("Erreur lors de l'envoi du message:", error);
+      alert("Erreur lors de l'envoi du message");
     }
   };
 
@@ -84,69 +66,38 @@ export default function DMPanel({ dmId, onBack }) {
     setUploadProgress(0);
     
     try {
-      // Calculer le hash du fichier
-      const fileHash = await calculateFileHash(file);
+      const fileRef = ref(storage, `dmFiles/${dmId}/${Date.now()}_${file.name}`);
+      const uploadTask = uploadBytesResumable(fileRef, file);
       
-      // Vérifier si le fichier existe déjà
-      const existingFileUrl = await checkExistingFile(fileHash);
-      
-      let fileUrl;
-      
-      if (existingFileUrl) {
-        // Réutiliser le fichier existant
-        console.log("Fichier déjà existant, réutilisation...");
-        fileUrl = existingFileUrl;
-        setUploadProgress(100);
-      } else {
-        // Uploader le nouveau fichier
-        const fileRef = ref(storage, `dmFiles/${dmId}/${fileHash}_${file.name}`);
-        const uploadTask = uploadBytesResumable(fileRef, file);
-        
-        fileUrl = await new Promise((resolve, reject) => {
-          uploadTask.on('state_changed',
-            (snapshot) => {
-              const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-              setUploadProgress(progress);
-            },
-            (err) => {
-              reject(err);
-            },
-            async () => {
-              try {
-                const url = await getDownloadURL(uploadTask.snapshot.ref);
-                resolve(url);
-              } catch (error) {
-                reject(error);
-              }
-            }
-          );
-        });
-        
-        // Enregistrer le hash du fichier pour les futures vérifications
-        await addDoc(collection(db, "fileHashes"), {
-          hash: fileHash,
-          fileName: file.name,
-          fileType: file.type,
-          fileUrl: fileUrl,
-          dmId: dmId,
-          uploadedBy: user.uid,
-          uploadedAt: serverTimestamp()
-        });
-      }
-      
-      // Ajouter le message
-      await addDoc(collection(db, "privateConversations", dmId, "messages"), {
-        fileUrl: fileUrl,
-        fileName: file.name,
-        fileType: file.type,
-        fileHash: fileHash,
-        author: user.uid,
-        createdAt: serverTimestamp(),
-        text: "",
-      });
-      
-      setUploading(false);
-      setUploadProgress(0);
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          setUploadProgress(progress);
+        },
+        (err) => {
+          console.error("Erreur upload:", err);
+          alert("Erreur lors de l'envoi du fichier");
+          setUploading(false);
+        },
+        async () => {
+          try {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            await addDoc(collection(db, "privateConversations", dmId, "messages"), {
+              fileUrl: url,
+              fileName: file.name,
+              fileType: file.type,
+              author: user.uid,
+              createdAt: serverTimestamp(),
+              text: "",
+            });
+            setUploading(false);
+            setUploadProgress(0);
+          } catch (error) {
+            console.error("Erreur finalisation upload:", error);
+            setUploading(false);
+          }
+        }
+      );
     } catch (err) {
       console.error("Erreur lors de l'envoi du fichier:", err);
       alert("Erreur lors de l'envoi du fichier");
@@ -171,29 +122,6 @@ export default function DMPanel({ dmId, onBack }) {
             await deleteObject(fileRef);
           } catch (storageError) {
             console.log("Fichier déjà supprimé ou introuvable:", storageError);
-          }
-          
-          // Vérifier si d'autres messages utilisent le même fichier
-          if (messageData.fileHash) {
-            const otherMessagesQuery = query(
-              collection(db, "privateConversations", dmId, "messages"),
-              where("fileHash", "==", messageData.fileHash),
-              where("id", "!=", msgId)
-            );
-            const otherMessages = await getDocs(otherMessagesQuery);
-            
-            // Si aucun autre message n'utilise ce fichier, supprimer la référence
-            if (otherMessages.empty) {
-              const hashRefsQuery = query(
-                collection(db, "fileHashes"),
-                where("hash", "==", messageData.fileHash),
-                where("dmId", "==", dmId)
-              );
-              const hashRefs = await getDocs(hashRefsQuery);
-              hashRefs.docs.forEach(async (hashDoc) => {
-                await deleteDoc(hashDoc.ref);
-              });
-            }
           }
         }
         
@@ -228,8 +156,6 @@ export default function DMPanel({ dmId, onBack }) {
             <div className={`px-4 py-2 rounded-lg max-w-xs break-words relative ${msg.author === user.uid ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-purple-100'}`}>
               {msg.type === 'invite' ? (
                 <InviteMessage msg={msg} user={user} dmId={dmId} />
-              ) : msg.deleted ? (
-                <span className="italic text-gray-400">Message supprimé</span>
               ) : msg.fileUrl ? (
                 msg.fileType && msg.fileType.startsWith('image/') ? (
                   <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
