@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { auth, db, storage } from "../firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 export default function DMPanel({ dmId, onBack }) {
   const user = auth.currentUser;
@@ -9,6 +9,7 @@ export default function DMPanel({ dmId, onBack }) {
   const [input, setInput] = useState("");
   const [otherUser, setOtherUser] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -53,22 +54,38 @@ export default function DMPanel({ dmId, onBack }) {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
+    setUploadProgress(0);
     try {
       const fileRef = ref(storage, `dmFiles/${dmId}/${Date.now()}_${file.name}`);
-      await uploadBytes(fileRef, file);
-      const url = await getDownloadURL(fileRef);
-      await addDoc(collection(db, "privateConversations", dmId, "messages"), {
-        fileUrl: url,
-        fileName: file.name,
-        fileType: file.type,
-        author: user.uid,
-        createdAt: serverTimestamp(),
-        text: "",
-      });
+      const uploadTask = uploadBytesResumable(fileRef, file);
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          setUploadProgress(progress);
+        },
+        (err) => {
+          alert("Erreur lors de l'envoi du fichier");
+          setUploading(false);
+        },
+        async () => {
+          const url = await getDownloadURL(uploadTask.snapshot.ref);
+          await addDoc(collection(db, "privateConversations", dmId, "messages"), {
+            fileUrl: url,
+            fileName: file.name,
+            fileType: file.type,
+            author: user.uid,
+            createdAt: serverTimestamp(),
+            text: "",
+          });
+          setUploading(false);
+          setUploadProgress(0);
+        }
+      );
     } catch (err) {
       alert("Erreur lors de l'envoi du fichier");
+      setUploading(false);
+      setUploadProgress(0);
     }
-    setUploading(false);
     e.target.value = "";
   };
 
@@ -126,6 +143,14 @@ export default function DMPanel({ dmId, onBack }) {
           disabled={uploading}
         />
         <button type="submit" className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded text-white font-semibold" disabled={uploading}>Envoyer</button>
+        {uploading && (
+          <div className="flex items-center gap-2 ml-2 w-32">
+            <div className="flex-1 h-2 bg-gray-700 rounded">
+              <div className="h-2 bg-indigo-500 rounded" style={{ width: `${uploadProgress}%` }}></div>
+            </div>
+            <span className="text-xs text-purple-200 w-8 text-right">{uploadProgress}%</span>
+          </div>
+        )}
       </form>
     </div>
   );
