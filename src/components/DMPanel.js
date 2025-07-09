@@ -21,7 +21,7 @@ export default function DMPanel({ dmId, onBack }) {
   const [conversationExists, setConversationExists] = useState(true);
 
   useEffect(() => {
-    if (!dmId) {
+    if (!dmId || typeof dmId !== 'string') {
       setConversationExists(false);
       return;
     }
@@ -30,24 +30,30 @@ export default function DMPanel({ dmId, onBack }) {
       setMessages(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => {
       // Si la conversation n'existe plus
+      console.log("Conversation introuvable:", error);
       setConversationExists(false);
     });
     return () => unsub();
   }, [dmId]);
 
   useEffect(() => {
-    if (!dmId || !user) return;
+    if (!dmId || typeof dmId !== 'string' || !user) return;
     const fetchOtherUser = async () => {
-      const convSnap = await getDoc(doc(db, "privateConversations", dmId));
-      if (!convSnap.exists()) {
+      try {
+        const convSnap = await getDoc(doc(db, "privateConversations", dmId));
+        if (!convSnap.exists()) {
+          setConversationExists(false);
+          return;
+        }
+        const members = convSnap.data().members;
+        const otherUid = members.find(uid => uid !== user.uid);
+        if (!otherUid) return;
+        const userSnap = await getDoc(doc(db, "users", otherUid));
+        setOtherUser(userSnap.exists() ? { uid: otherUid, ...userSnap.data() } : { uid: otherUid });
+      } catch (error) {
+        console.log("Erreur lors de la récupération de la conversation:", error);
         setConversationExists(false);
-        return;
       }
-      const members = convSnap.data().members;
-      const otherUid = members.find(uid => uid !== user.uid);
-      if (!otherUid) return;
-      const userSnap = await getDoc(doc(db, "users", otherUid));
-      setOtherUser(userSnap.exists() ? { uid: otherUid, ...userSnap.data() } : { uid: otherUid });
     };
     fetchOtherUser();
   }, [dmId, user]);
@@ -199,7 +205,7 @@ export default function DMPanel({ dmId, onBack }) {
     window.location.reload();
   };
 
-  if (!dmId || !conversationExists) return (
+  if (!dmId || typeof dmId !== 'string' || !conversationExists) return (
     <div className="flex-1 flex items-center justify-center text-purple-300 text-lg">
       Aucune conversation sélectionnée ou cette conversation n'existe plus.
     </div>
