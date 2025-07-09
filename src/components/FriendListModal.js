@@ -267,7 +267,6 @@ function FriendProfileModal({ uid, onClose, onRemove, onDM }) {
         <div className="text-xl font-bold text-white mb-1">{profile.pseudo} <span className="text-purple-300">#{profile.discriminator}</span></div>
         <div className="text-sm text-purple-200 mb-2">Inscrit le : {createdAt}</div>
         {profile.status && <div className="text-xs text-green-400 mb-1">Statut : {profile.status}</div>}
-        {profile.email && <div className="text-xs text-purple-400 mb-2">Email : {profile.email}</div>}
         <div className="flex gap-2 mt-2">
           <button onClick={() => { onRemove(uid); onClose(); }} className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded text-white font-semibold">Supprimer ami</button>
           <button onClick={() => onDM(uid)} className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded text-white font-semibold">DM</button>
