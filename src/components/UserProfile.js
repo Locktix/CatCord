@@ -183,42 +183,6 @@ export default function UserProfile() {
             </div>
           </div>
           <div>
-            <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg font-bold text-white">Apparence</span>
-              <span className="flex-1 border-b border-gray-700"></span>
-            </div>
-            <div className="flex flex-col md:flex-row gap-4 mb-2">
-              <div className="flex-1">
-                <label className="block font-semibold mb-1">Taille de police</label>
-                <select
-                  name="fontSize"
-                  value={profile.fontSize || "base"}
-                  onChange={handleChange}
-                  className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none w-full"
-                  disabled={saving}
-                >
-                  {fontSizes.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="block font-semibold mb-1">Forme des avatars</label>
-                <select
-                  name="avatarShape"
-                  value={profile.avatarShape || "rounded-full"}
-                  onChange={handleChange}
-                  className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none w-full"
-                  disabled={saving}
-                >
-                  {avatarShapes.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-          <div>
             <label className="block font-semibold mb-1">Email</label>
             <input
               type="email"
