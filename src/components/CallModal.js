@@ -34,8 +34,11 @@ export default function CallModal({ open, onClose, otherUser, dmId, isReceiver =
   async function waitForOffer() {
     setCallState("waiting");
     
+    // Créer un objet temporaire pour stocker les listeners
+    const listeners = {};
+    
     // Écouter l'offre de l'initiateur
-    const unsubOffer = onSnapshot(offerDoc, async (snap) => {
+    listeners.unsubOffer = onSnapshot(offerDoc, async (snap) => {
       const data = snap.data();
       if (data && data.to === user.uid && data.from === otherUser.uid) {
         // Accepter l'appel automatiquement
@@ -44,7 +47,7 @@ export default function CallModal({ open, onClose, otherUser, dmId, isReceiver =
     });
     
     // Écouter les réponses
-    const unsubAnswer = onSnapshot(answerDoc, async (snap) => {
+    listeners.unsubAnswer = onSnapshot(answerDoc, async (snap) => {
       const data = snap.data();
       if (data && data.to === user.uid && data.from === otherUser.uid) {
         if (data.answer === "declined") {
@@ -54,8 +57,8 @@ export default function CallModal({ open, onClose, otherUser, dmId, isReceiver =
       }
     });
     
-    pcRef.current._unsubOffer = unsubOffer;
-    pcRef.current._unsubAnswer = unsubAnswer;
+    // Stocker les listeners dans pcRef pour le cleanup
+    pcRef.current = { _listeners: listeners };
   }
 
   async function acceptCall(offer) {
@@ -195,17 +198,34 @@ export default function CallModal({ open, onClose, otherUser, dmId, isReceiver =
 
   async function cleanup() {
     if (pcRef.current) {
-      pcRef.current.close();
+      // Si c'est une connexion WebRTC, la fermer
+      if (pcRef.current.close) {
+        pcRef.current.close();
+      }
+      
+      // Nettoyer les listeners
+      if (pcRef.current._listeners) {
+        if (pcRef.current._listeners.unsubOffer) pcRef.current._listeners.unsubOffer();
+        if (pcRef.current._listeners.unsubAnswer) pcRef.current._listeners.unsubAnswer();
+      }
+      
       if (pcRef.current._unsubAnswer) pcRef.current._unsubAnswer();
       if (pcRef.current._unsubRemoteIce) pcRef.current._unsubRemoteIce();
     }
+    
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
     }
-    await deleteDoc(offerDoc);
-    await deleteDoc(answerDoc);
-    await deleteDoc(doc(db, "calls", `${callDocId}_ice_${user.uid}`));
-    await deleteDoc(doc(db, "calls", `${callDocId}_ice_${otherUser.uid}`));
+    
+    try {
+      await deleteDoc(offerDoc);
+      await deleteDoc(answerDoc);
+      await deleteDoc(doc(db, "calls", `${callDocId}_ice_${user.uid}`));
+      await deleteDoc(doc(db, "calls", `${callDocId}_ice_${otherUser.uid}`));
+    } catch (error) {
+      console.log("Erreur lors du nettoyage des documents:", error);
+    }
+    
     setCallState("ended");
   }
 
