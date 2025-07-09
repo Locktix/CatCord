@@ -27,6 +27,18 @@ export default function UserProfile() {
     `https://api.dicebear.com/7.x/thumbs/svg?seed=cat6`,
   ];
 
+  const fontSizes = [
+    { value: "sm", label: "Petite" },
+    { value: "base", label: "Normale" },
+    { value: "lg", label: "Grande" },
+    { value: "xl", label: "Très grande" },
+  ];
+  const avatarShapes = [
+    { value: "rounded-full", label: "Rond" },
+    { value: "rounded-lg", label: "Arrondi" },
+    { value: "", label: "Carré" },
+  ];
+
   useEffect(() => {
     if (!user) return;
     const fetchProfile = async () => {
@@ -36,6 +48,13 @@ export default function UserProfile() {
     };
     fetchProfile();
   }, [user]);
+
+  useEffect(() => {
+    if (profile.fontSize) {
+      document.documentElement.classList.remove("text-sm", "text-base", "text-lg", "text-xl");
+      document.documentElement.classList.add(`text-${profile.fontSize}`);
+    }
+  }, [profile.fontSize]);
 
   const handleChange = e => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
@@ -161,6 +180,42 @@ export default function UserProfile() {
                   disabled={saving}
                 />
               </label>
+            </div>
+          </div>
+          <div>
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg font-bold text-white">Apparence</span>
+              <span className="flex-1 border-b border-gray-700"></span>
+            </div>
+            <div className="flex flex-col md:flex-row gap-4 mb-2">
+              <div className="flex-1">
+                <label className="block font-semibold mb-1">Taille de police</label>
+                <select
+                  name="fontSize"
+                  value={profile.fontSize || "base"}
+                  onChange={handleChange}
+                  className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none w-full"
+                  disabled={saving}
+                >
+                  {fontSizes.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block font-semibold mb-1">Forme des avatars</label>
+                <select
+                  name="avatarShape"
+                  value={profile.avatarShape || "rounded-full"}
+                  onChange={handleChange}
+                  className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none w-full"
+                  disabled={saving}
+                >
+                  {avatarShapes.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
           <div>
