@@ -2,7 +2,7 @@
   {
     "origin": [
       "http://localhost:3000",
-      "https://locktix.github.io/CatzCord/"
+      "https://locktix.github.io/CatCord/"
     ],
     "method": ["GET", "POST", "PUT", "DELETE"],
     "maxAgeSeconds": 3600,
