@@ -1,0 +1,2 @@
+call npx electron .
+pause
