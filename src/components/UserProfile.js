@@ -111,30 +111,56 @@ export default function UserProfile() {
       ) : (
         <form onSubmit={handleSave} className="flex flex-col gap-6">
           <div>
-            <label className="block font-semibold mb-1">Avatar</label>
-            <div className="flex items-center gap-4 mb-2">
-              <img
-                src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${user.uid}`}
-                alt="avatar"
-                className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500"
-              />
-              {profile.avatar && (
-                <button type="button" onClick={handleDeleteAvatar} className="text-xs text-red-400 hover:underline w-fit ml-2">Supprimer</button>
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg font-bold text-white">Avatar</span>
+              <span className="flex-1 border-b border-gray-700"></span>
+            </div>
+            <div className="flex flex-col items-center mb-4">
+              <div className="relative">
+                <img
+                  src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${user.uid}`}
+                  alt="avatar"
+                  className="w-24 h-24 rounded-full object-cover border-4 border-indigo-500 shadow-lg bg-gray-900"
+                />
+                {profile.avatar && (
+                  <button type="button" onClick={handleDeleteAvatar} className="absolute bottom-0 right-0 bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded-full shadow-lg">Supprimer</button>
+                )}
+              </div>
+              {profile.avatar && !predefinedAvatars.includes(profile.avatar) && (
+                <span className="text-xs text-purple-300 mt-2 bg-gray-800 px-2 py-1 rounded-full">Photo personnalisée</span>
               )}
             </div>
-            <div className="flex gap-2 flex-wrap mt-2">
+            <div className="mb-2 text-xs text-purple-400 font-semibold uppercase tracking-wider">Avatars prédéfinis</div>
+            <div className="flex gap-2 flex-wrap justify-center mb-4">
               {predefinedAvatars.map((url, i) => (
                 <button
                   type="button"
                   key={url}
                   onClick={() => handleSelectPredefined(url)}
-                  className={`p-0.5 rounded-full border-2 ${profile.avatar === url ? 'border-indigo-500' : 'border-transparent'} hover:border-indigo-400 transition`}
+                  className={`p-0.5 rounded-full border-2 ${profile.avatar === url ? 'border-indigo-500 ring-2 ring-indigo-400' : 'border-transparent'} hover:bg-gray-800 transition`}
                   title={`Avatar ${i + 1}`}
                   disabled={saving}
                 >
-                  <img src={url} alt={`avatar ${i + 1}`} className="w-10 h-10 rounded-full object-cover" />
+                  <img src={url} alt={`avatar ${i + 1}`} className="w-12 h-12 rounded-full object-cover" />
                 </button>
               ))}
+            </div>
+            <div className="flex items-center gap-2 justify-center mt-2 mb-2">
+              <span className="flex-1 border-b border-gray-700"></span>
+              <span className="text-xs text-gray-400">ou</span>
+              <span className="flex-1 border-b border-gray-700"></span>
+            </div>
+            <div className="flex items-center gap-2 justify-center">
+              <label className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded cursor-pointer text-sm font-semibold flex items-center gap-2 shadow border border-indigo-700">
+                <span className="text-lg">📷</span> Uploader une photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                  disabled={saving}
+                />
+              </label>
             </div>
           </div>
           <div>
