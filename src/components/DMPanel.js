@@ -16,12 +16,21 @@ export default function DMPanel({ dmId, onBack }) {
   const [showSettings, setShowSettings] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [uploadTaskRef, setUploadTaskRef] = useState(null);
+  const [showUploadCanceled, setShowUploadCanceled] = useState(false);
+  const [conversationExists, setConversationExists] = useState(true);
 
   useEffect(() => {
-    if (!dmId) return;
+    if (!dmId) {
+      setConversationExists(false);
+      return;
+    }
     const q = query(collection(db, "privateConversations", dmId, "messages"), orderBy("createdAt"));
     const unsub = onSnapshot(q, snap => {
       setMessages(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      // Si la conversation n'existe plus
+      setConversationExists(false);
     });
     return () => unsub();
   }, [dmId]);
@@ -30,7 +39,10 @@ export default function DMPanel({ dmId, onBack }) {
     if (!dmId || !user) return;
     const fetchOtherUser = async () => {
       const convSnap = await getDoc(doc(db, "privateConversations", dmId));
-      if (!convSnap.exists()) return;
+      if (!convSnap.exists()) {
+        setConversationExists(false);
+        return;
+      }
       const members = convSnap.data().members;
       const otherUid = members.find(uid => uid !== user.uid);
       if (!otherUid) return;
@@ -64,23 +76,25 @@ export default function DMPanel({ dmId, onBack }) {
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
     setUploading(true);
     setUploadProgress(0);
-    
     try {
       const fileRef = ref(storage, `dmFiles/${dmId}/${Date.now()}_${file.name}`);
       const uploadTask = uploadBytesResumable(fileRef, file);
-      
+      setUploadTaskRef(uploadTask);
       uploadTask.on('state_changed',
         (snapshot) => {
           const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
           setUploadProgress(progress);
         },
         (err) => {
-          console.error("Erreur upload:", err);
-          alert("Erreur lors de l'envoi du fichier");
+          if (err.code === 'storage/canceled') {
+            setShowUploadCanceled(true);
+          } else {
+            alert("Erreur lors de l'envoi du fichier");
+          }
           setUploading(false);
+          setUploadTaskRef(null);
         },
         async () => {
           try {
@@ -95,9 +109,11 @@ export default function DMPanel({ dmId, onBack }) {
             });
             setUploading(false);
             setUploadProgress(0);
+            setUploadTaskRef(null);
           } catch (error) {
             console.error("Erreur finalisation upload:", error);
             setUploading(false);
+            setUploadTaskRef(null);
           }
         }
       );
@@ -105,10 +121,18 @@ export default function DMPanel({ dmId, onBack }) {
       console.error("Erreur lors de l'envoi du fichier:", err);
       alert("Erreur lors de l'envoi du fichier");
       setUploading(false);
-      setUploadProgress(0);
+      setUploadTaskRef(null);
     }
-    
     e.target.value = "";
+  };
+
+  const handleCancelUpload = () => {
+    if (uploadTaskRef) {
+      uploadTaskRef.cancel();
+      setUploading(false);
+      setUploadProgress(0);
+      setUploadTaskRef(null);
+    }
   };
 
   const downloadFile = async (fileUrl, fileName) => {
@@ -175,7 +199,11 @@ export default function DMPanel({ dmId, onBack }) {
     window.location.reload();
   };
 
-  if (!dmId) return null;
+  if (!dmId || !conversationExists) return (
+    <div className="flex-1 flex items-center justify-center text-purple-300 text-lg">
+      Aucune conversation sélectionnée ou cette conversation n'existe plus.
+    </div>
+  );
 
   return (
     <div className="flex-1 h-screen flex flex-col bg-gray-900 bg-opacity-60 min-w-0">
@@ -280,11 +308,16 @@ export default function DMPanel({ dmId, onBack }) {
         />
         <button type="submit" className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded text-white font-semibold" disabled={uploading}>Envoyer</button>
         {uploading && (
-          <div className="flex items-center gap-2 ml-2 w-32">
+          <div className="flex items-center gap-2 ml-2 w-40">
             <div className="flex-1 h-2 bg-gray-700 rounded">
               <div className="h-2 bg-indigo-500 rounded" style={{ width: `${uploadProgress}%` }}></div>
             </div>
             <span className="text-xs text-purple-200 w-8 text-right">{uploadProgress}%</span>
+            <button
+              type="button"
+              onClick={handleCancelUpload}
+              className="ml-2 text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded"
+            >Annuler</button>
           </div>
         )}
       </form>
@@ -317,6 +350,18 @@ export default function DMPanel({ dmId, onBack }) {
                 Annuler
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {showUploadCanceled && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+          <div className="bg-gray-900 rounded-xl p-8 shadow-xl flex flex-col items-center max-w-sm w-full">
+            <div className="text-lg text-purple-300 font-bold mb-4">Envoi annulé</div>
+            <div className="text-purple-200 mb-6 text-center">L'envoi du fichier a été annulé.</div>
+            <button
+              onClick={() => setShowUploadCanceled(false)}
+              className="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded text-white font-bold"
+            >OK</button>
           </div>
         </div>
       )}
