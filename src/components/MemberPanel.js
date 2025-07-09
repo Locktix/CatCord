@@ -147,34 +147,38 @@ export default function MemberPanel({ serverId, onStartDM }) {
         <div className="text-purple-200">Chargement...</div>
       ) : (
         <>
-          {/* Section propriétaire */}
-          {owner && profiles[owner] && (
-            <div className="mb-2">
-              <div className="text-xs text-purple-400 font-semibold mb-1 uppercase tracking-wider">Propriétaire</div>
+          {/* Bloc scrollable pour la liste des membres */}
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-700 scrollbar-track-gray-900 min-h-0">
+            {/* Section propriétaire */}
+            {owner && profiles[owner] && (
+              <div className="mb-2">
+                <div className="text-xs text-purple-400 font-semibold mb-1 uppercase tracking-wider">Propriétaire</div>
+                <ul className="space-y-2">
+                  {renderMember(owner)}
+                </ul>
+              </div>
+            )}
+            {/* Section membres */}
+            <div className="mt-4">
+              <div className="text-xs text-purple-400 font-semibold mb-1 uppercase tracking-wider">Membres</div>
               <ul className="space-y-2">
-                {renderMember(owner)}
+                {members.filter(uid => uid !== owner).map(uid => renderMember(uid))}
               </ul>
             </div>
-          )}
-          {/* Section membres */}
-          <div className="mt-4">
-            <div className="text-xs text-purple-400 font-semibold mb-1 uppercase tracking-wider">Membres</div>
-            <ul className="space-y-2">
-              {members.filter(uid => uid !== owner).map(uid => renderMember(uid))}
-            </ul>
           </div>
-          {currentUser && owner !== currentUser.uid && (
-            <div className="mt-4 pt-4 border-t border-gray-700">
-              <button
-                onClick={() => setShowLeaveConfirm(true)}
-                disabled={leaving}
-                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white px-3 py-2 rounded text-sm font-semibold transition"
-              >
-                {leaving ? "Départ..." : "Quitter le serveur"}
-              </button>
-            </div>
-          )}
         </>
+      )}
+      {/* Bouton quitter toujours en bas */}
+      {currentUser && owner !== currentUser.uid && (
+        <div className="pt-4 mt-4 border-t border-gray-700">
+          <button
+            onClick={() => setShowLeaveConfirm(true)}
+            disabled={leaving}
+            className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white px-3 py-2 rounded text-sm font-semibold transition"
+          >
+            {leaving ? "Départ..." : "Quitter le serveur"}
+          </button>
+        </div>
       )}
       {showLeaveConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
