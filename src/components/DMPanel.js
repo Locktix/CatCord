@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { auth, db, storage } from "../firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion, deleteDoc } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import CallModal from "./CallModal";
 
 export default function DMPanel({ dmId, onBack }) {
@@ -47,56 +47,93 @@ export default function DMPanel({ dmId, onBack }) {
   const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
-    await addDoc(collection(db, "privateConversations", dmId, "messages"), {
-      text: input,
-      author: user.uid,
-      createdAt: serverTimestamp(),
-    });
-    setInput("");
+    
+    try {
+      await addDoc(collection(db, "privateConversations", dmId, "messages"), {
+        text: input,
+        author: user.uid,
+        createdAt: serverTimestamp(),
+      });
+      setInput("");
+    } catch (error) {
+      console.error("Erreur lors de l'envoi du message:", error);
+      alert("Erreur lors de l'envoi du message");
+    }
   };
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    
     setUploading(true);
     setUploadProgress(0);
+    
     try {
       const fileRef = ref(storage, `dmFiles/${dmId}/${Date.now()}_${file.name}`);
       const uploadTask = uploadBytesResumable(fileRef, file);
+      
       uploadTask.on('state_changed',
         (snapshot) => {
           const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
           setUploadProgress(progress);
         },
         (err) => {
+          console.error("Erreur upload:", err);
           alert("Erreur lors de l'envoi du fichier");
           setUploading(false);
         },
         async () => {
-          const url = await getDownloadURL(uploadTask.snapshot.ref);
-          await addDoc(collection(db, "privateConversations", dmId, "messages"), {
-            fileUrl: url,
-            fileName: file.name,
-            fileType: file.type,
-            author: user.uid,
-            createdAt: serverTimestamp(),
-            text: "",
-          });
-          setUploading(false);
-          setUploadProgress(0);
+          try {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            await addDoc(collection(db, "privateConversations", dmId, "messages"), {
+              fileUrl: url,
+              fileName: file.name,
+              fileType: file.type,
+              author: user.uid,
+              createdAt: serverTimestamp(),
+              text: "",
+            });
+            setUploading(false);
+            setUploadProgress(0);
+          } catch (error) {
+            console.error("Erreur finalisation upload:", error);
+            setUploading(false);
+          }
         }
       );
     } catch (err) {
+      console.error("Erreur lors de l'envoi du fichier:", err);
       alert("Erreur lors de l'envoi du fichier");
       setUploading(false);
       setUploadProgress(0);
     }
+    
     e.target.value = "";
   };
 
   const handleDeleteMessage = async (msgId) => {
     if (window.confirm("Supprimer ce message ?")) {
-      await updateDoc(doc(db, "privateConversations", dmId, "messages", msgId), { deleted: true });
+      try {
+        // Récupérer le message pour obtenir l'URL du fichier
+        const messageDoc = await getDoc(doc(db, "privateConversations", dmId, "messages", msgId));
+        const messageData = messageDoc.data();
+        
+        // Supprimer le fichier de Firebase Storage si il existe
+        if (messageData.fileUrl) {
+          try {
+            const fileRef = ref(storage, messageData.fileUrl);
+            await deleteObject(fileRef);
+          } catch (storageError) {
+            console.log("Fichier déjà supprimé ou introuvable:", storageError);
+          }
+        }
+        
+        // Supprimer le message de Firestore
+        await deleteDoc(doc(db, "privateConversations", dmId, "messages", msgId));
+      } catch (error) {
+        console.error("Erreur lors de la suppression:", error);
+        alert("Erreur lors de la suppression du message");
+      }
     }
   };
 
@@ -157,8 +194,6 @@ export default function DMPanel({ dmId, onBack }) {
             <div className={`px-4 py-2 rounded-lg max-w-xs break-words relative ${msg.author === user.uid ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-purple-100'}`}>
               {msg.type === 'invite' ? (
                 <InviteMessage msg={msg} user={user} dmId={dmId} />
-              ) : msg.deleted ? (
-                <span className="italic text-gray-400">Message supprimé</span>
               ) : msg.fileUrl ? (
                 msg.fileType && msg.fileType.startsWith('image/') ? (
                   <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
