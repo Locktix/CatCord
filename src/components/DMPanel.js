@@ -252,7 +252,15 @@ export default function DMPanel({ dmId, onBack }) {
               ) : msg.fileUrl ? (
                 msg.fileType && msg.fileType.startsWith('image/') ? (
                   <div>
-                    <img src={msg.fileUrl} alt={msg.fileName} className="max-w-[200px] max-h-[200px] rounded mb-1" />
+                    <img 
+                      src={msg.fileUrl} 
+                      alt={msg.fileName} 
+                      className="max-w-[200px] max-h-[200px] rounded mb-1" 
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.textContent = '❌ Image non disponible';
+                      }}
+                    />
                     <button 
                       onClick={() => downloadFile(msg.fileUrl, msg.fileName)}
                       className="text-xs text-indigo-300 hover:text-indigo-200 underline cursor-pointer"

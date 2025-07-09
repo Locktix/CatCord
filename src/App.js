@@ -9,17 +9,46 @@ import MemberPanel from './components/MemberPanel';
 import DMList from './components/DMList';
 import DMPanel from './components/DMPanel';
 import CallNotification from './components/CallNotification';
+import LoadingScreen from './components/LoadingScreen';
 
 function App() {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [selectedServer, setSelectedServer] = useState(null);
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [selectedDM, setSelectedDM] = useState(null);
   const [dmConversations, setDmConversations] = useState([]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
+    const startTime = Date.now();
+    const minLoadingTime = 3000; // 3 secondes minimum
+    
+    // Animation de progression
+    const progressInterval = setInterval(() => {
+      setLoadingProgress(prev => {
+        if (prev >= 90) return prev;
+        return prev + Math.random() * 15;
+      });
+    }, 200);
+    
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, minLoadingTime - elapsedTime);
+      
+      // Progression finale
+      setLoadingProgress(100);
+      
+      setTimeout(() => {
+        setUser(user);
+        setLoading(false);
+      }, remainingTime);
+    });
+    
+    return () => {
+      unsubscribe();
+      clearInterval(progressInterval);
+    };
   }, []);
 
   useEffect(() => {
@@ -63,6 +92,11 @@ function App() {
     setSelectedServer(null);
     setSelectedChannel(null);
   };
+
+  // Loading screen
+  if (loading) {
+    return <LoadingScreen progress={loadingProgress} />;
+  }
 
   if (!user) {
     return (
