@@ -14,8 +14,10 @@
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
     <script>
-      // Redirect to the React app
-      window.location.href = '/CatCord/';
+      // Load the React app
+      const script = document.createElement('script');
+      script.src = './static/js/main.js';
+      document.body.appendChild(script);
     </script>
   </body>
 </html> 
