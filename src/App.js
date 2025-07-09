@@ -134,7 +134,7 @@ function App() {
         <>
           <ServerSidebar user={user} selectedServer={selectedServer} setSelectedServer={setSelectedServer} setSelectedChannel={setSelectedChannel} onShowDM={handleShowDM} />
           <ChannelPanel serverId={selectedServer} selectedChannel={selectedChannel} setSelectedChannel={setSelectedChannel} />
-          <MessagePanel channelId={selectedChannel} />
+          <MessagePanel channelId={selectedChannel} selectedServer={selectedServer} />
           <MemberPanel serverId={selectedServer} onStartDM={handleStartDM} />
         </>
       )}
