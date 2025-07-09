@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useRef } from "react";
-import { auth, db } from "../firebase";
+import { auth, db, storage } from "../firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 export default function DMPanel({ dmId, onBack }) {
   const user = auth.currentUser;
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [otherUser, setOtherUser] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -47,6 +49,29 @@ export default function DMPanel({ dmId, onBack }) {
     setInput("");
   };
 
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fileRef = ref(storage, `dmFiles/${dmId}/${Date.now()}_${file.name}`);
+      await uploadBytes(fileRef, file);
+      const url = await getDownloadURL(fileRef);
+      await addDoc(collection(db, "privateConversations", dmId, "messages"), {
+        fileUrl: url,
+        fileName: file.name,
+        fileType: file.type,
+        author: user.uid,
+        createdAt: serverTimestamp(),
+        text: "",
+      });
+    } catch (err) {
+      alert("Erreur lors de l'envoi du fichier");
+    }
+    setUploading(false);
+    e.target.value = "";
+  };
+
   if (!dmId) return null;
 
   return (
@@ -68,6 +93,17 @@ export default function DMPanel({ dmId, onBack }) {
             <div className={`px-4 py-2 rounded-lg max-w-xs break-words ${msg.author === user.uid ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-purple-100'}`}>
               {msg.type === 'invite' ? (
                 <InviteMessage msg={msg} user={user} dmId={dmId} />
+              ) : msg.fileUrl ? (
+                msg.fileType && msg.fileType.startsWith('image/') ? (
+                  <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
+                    <img src={msg.fileUrl} alt={msg.fileName} className="max-w-[200px] max-h-[200px] rounded mb-1" />
+                    <div className="text-xs text-purple-200 underline">{msg.fileName}</div>
+                  </a>
+                ) : (
+                  <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-300 underline">
+                    📎 {msg.fileName}
+                  </a>
+                )
               ) : (
                 msg.text
               )}
@@ -77,14 +113,19 @@ export default function DMPanel({ dmId, onBack }) {
         <div ref={messagesEndRef} />
       </div>
       <form onSubmit={handleSend} className="flex gap-2 p-4 border-t border-gray-800 bg-gray-900 bg-opacity-80">
+        <label className="flex items-center cursor-pointer">
+          <span className="text-2xl px-2 text-purple-300 hover:text-white">📎</span>
+          <input type="file" className="hidden" onChange={handleFileChange} disabled={uploading} />
+        </label>
         <input
           type="text"
           value={input}
           onChange={e => setInput(e.target.value)}
           className="flex-1 px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none"
           placeholder="Écrire un message..."
+          disabled={uploading}
         />
-        <button type="submit" className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded text-white font-semibold">Envoyer</button>
+        <button type="submit" className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded text-white font-semibold" disabled={uploading}>Envoyer</button>
       </form>
     </div>
   );
