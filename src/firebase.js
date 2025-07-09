@@ -8,7 +8,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyCweZNhn747ybn82etgWfKS7ZDIVUzC9ww",
   authDomain: "catcord-b8ec8.firebaseapp.com",
   projectId: "catcord-b8ec8",
-  storageBucket: "catcord-b8ec8.appspot.com",
+  storageBucket: "catcord-b8ec8.firebasestorage.app",
   messagingSenderId: "505779431139",
   appId: "1:505779431139:web:3f50525b8dd0cead4607d6",
   measurementId: "G-FRL5SD62ZL"
