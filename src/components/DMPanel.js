@@ -20,14 +20,11 @@ export default function DMPanel({ dmId, onBack }) {
   const [uploadTaskRef, setUploadTaskRef] = useState(null);
   const [showUploadCanceled, setShowUploadCanceled] = useState(false);
   const [conversationExists, setConversationExists] = useState(true);
-<<<<<<< HEAD
   const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState(null);
   const { addNotification } = useNotifications();
   const lastMessageTimeRef = useRef(null);
-=======
   const [hasActiveCall, setHasActiveCall] = useState(false); // Pour désactiver le bouton Appeler
->>>>>>> 86af07b23a80717a79e483f09abd7ab40b3808ce
 
   useEffect(() => {
     if (!dmId || typeof dmId !== 'string') {
