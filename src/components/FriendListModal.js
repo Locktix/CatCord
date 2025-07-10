@@ -245,7 +245,10 @@ export default function FriendListModal({ onClose }) {
 function FriendItem({ uid, onRemove, onClick, onInvite }) {
   const [profile, setProfile] = useState(null);
   useEffect(() => {
-    getDoc(doc(db, "users", uid)).then(snap => setProfile(snap.data()));
+    const unsub = onSnapshot(doc(db, "users", uid), (snap) => {
+      setProfile(snap.data());
+    });
+    return () => unsub();
   }, [uid]);
   if (!profile) return <span>Chargement...</span>;
   return (
@@ -268,7 +271,10 @@ function FriendItem({ uid, onRemove, onClick, onInvite }) {
 function FriendProfileModal({ uid, onClose, onRemove, onDM }) {
   const [profile, setProfile] = useState(null);
   useEffect(() => {
-    getDoc(doc(db, "users", uid)).then(snap => setProfile(snap.data()));
+    const unsub = onSnapshot(doc(db, "users", uid), (snap) => {
+      setProfile(snap.data());
+    });
+    return () => unsub();
   }, [uid]);
   if (!profile) return null;
   const createdAt = profile.createdAt ? new Date(profile.createdAt.seconds * 1000).toLocaleDateString() : "?";

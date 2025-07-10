@@ -48,8 +48,11 @@ export default function DMPanel({ dmId, onBack }) {
         const members = convSnap.data().members;
         const otherUid = members.find(uid => uid !== user.uid);
         if (!otherUid) return;
-        const userSnap = await getDoc(doc(db, "users", otherUid));
-        setOtherUser(userSnap.exists() ? { uid: otherUid, ...userSnap.data() } : { uid: otherUid });
+        // Utiliser onSnapshot pour écouter les changements du profil en temps réel
+        const unsub = onSnapshot(doc(db, "users", otherUid), (userSnap) => {
+          setOtherUser(userSnap.exists() ? { uid: otherUid, ...userSnap.data() } : { uid: otherUid });
+        });
+        return () => unsub();
       } catch (error) {
         console.log("Erreur lors de la récupération de la conversation:", error);
         setConversationExists(false);

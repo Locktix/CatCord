@@ -59,7 +59,10 @@ function DMListItem({ convId, otherUid, selected, onSelect }) {
   
   React.useEffect(() => {
     if (!otherUid) return; // Protection contre otherUid undefined
-    getDoc(doc(db, "users", otherUid)).then(snap => setOtherProfile(snap.data()));
+    const unsub = onSnapshot(doc(db, "users", otherUid), (snap) => {
+      setOtherProfile(snap.data());
+    });
+    return () => unsub();
   }, [otherUid]);
   
   // Si otherUid n'existe pas, on ne rend rien

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { auth, db, storage } from "../firebase";
-import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { doc, updateDoc, getDoc, onSnapshot } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import InviteModal from './InviteModal';
 
@@ -17,15 +17,14 @@ export default function ServerSettingsModal({ serverId, onClose }) {
 
   useEffect(() => {
     if (!serverId) return;
-    const fetchServer = async () => {
-      const serverDoc = await getDoc(doc(db, "servers", serverId));
-      if (serverDoc.exists()) {
-        const serverData = serverDoc.data();
-        setServer({ id: serverDoc.id, ...serverData });
+    const unsub = onSnapshot(doc(db, "servers", serverId), (serverSnap) => {
+      if (serverSnap.exists()) {
+        const serverData = serverSnap.data();
+        setServer({ id: serverSnap.id, ...serverData });
         setServerName(serverData.name || "");
       }
-    };
-    fetchServer();
+    });
+    return () => unsub();
   }, [serverId]);
 
   const handleFileChange = async (e) => {

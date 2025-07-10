@@ -21,9 +21,12 @@ export default function InviteModal({ serverId, onClose }) {
     return () => unsub();
   }, [user]);
 
-  // Récupère les membres du serveur
+  // Récupère les membres du serveur en temps réel
   useEffect(() => {
-    getDoc(doc(db, "servers", serverId)).then(snap => setMembers(snap.data()?.members || []));
+    const unsub = onSnapshot(doc(db, "servers", serverId), (snap) => {
+      setMembers(snap.data()?.members || []);
+    });
+    return () => unsub();
   }, [serverId]);
 
   // Invitation : envoie un message dans le DM
@@ -103,7 +106,10 @@ function FriendInviteItem({ uid, onInvite }) {
   const [inviting, setInviting] = useState(false);
   
   useEffect(() => {
-    getDoc(doc(db, "users", uid)).then(snap => setProfile(snap.data()));
+    const unsub = onSnapshot(doc(db, "users", uid), (snap) => {
+      setProfile(snap.data());
+    });
+    return () => unsub();
   }, [uid]);
   
   const handleInvite = async () => {

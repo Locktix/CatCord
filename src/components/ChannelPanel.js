@@ -22,19 +22,18 @@ export default function ChannelPanel({ serverId, selectedChannel, setSelectedCha
     return () => unsub();
   }, [serverId]);
 
-  // Vérifier si l'utilisateur est propriétaire ou admin du serveur
+  // Vérifier si l'utilisateur est propriétaire ou admin du serveur en temps réel
   useEffect(() => {
     if (!serverId || !user) return;
-    const fetchServer = async () => {
-      const serverDoc = await getDoc(doc(db, "servers", serverId));
-      if (serverDoc.exists()) {
-        const serverData = serverDoc.data();
+    const unsub = onSnapshot(doc(db, "servers", serverId), (serverSnap) => {
+      if (serverSnap.exists()) {
+        const serverData = serverSnap.data();
         setServer(serverData);
         setIsOwner(serverData.owner === user.uid);
         setIsAdmin(serverData.admins && serverData.admins.includes(user.uid));
       }
-    };
-    fetchServer();
+    });
+    return () => unsub();
   }, [serverId, user]);
 
   const handleCreateChannel = async (e) => {
