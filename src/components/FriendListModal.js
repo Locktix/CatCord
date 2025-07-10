@@ -144,6 +144,14 @@ export default function FriendListModal({ onClose }) {
     setSelectedFriend(null);
   }
 
+  // Fonction pour inviter un ami dans un serveur
+  const handleInviteToServer = async (friendUid) => {
+    // Cette fonction sera appelée depuis l'extérieur avec le serverId
+    if (window.inviteToServer) {
+      window.inviteToServer(friendUid);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
       <div className="bg-gray-900 rounded-2xl p-10 shadow-2xl relative max-w-lg w-full min-h-[500px]">
@@ -185,7 +193,7 @@ export default function FriendListModal({ onClose }) {
           ) : (
             <ul className="space-y-2">
               {friends.map(uid => (
-                <FriendItem key={uid} uid={uid} onClick={() => setSelectedFriend(uid)} />
+                <FriendItem key={uid} uid={uid} onClick={() => setSelectedFriend(uid)} onInvite={handleInviteToServer} />
               ))}
             </ul>
           )}
@@ -234,10 +242,13 @@ export default function FriendListModal({ onClose }) {
   );
 }
 
-function FriendItem({ uid, onRemove, onClick }) {
+function FriendItem({ uid, onRemove, onClick, onInvite }) {
   const [profile, setProfile] = useState(null);
   useEffect(() => {
-    getDoc(doc(db, "users", uid)).then(snap => setProfile(snap.data()));
+    const unsub = onSnapshot(doc(db, "users", uid), (snap) => {
+      setProfile(snap.data());
+    });
+    return () => unsub();
   }, [uid]);
   if (!profile) return <span>Chargement...</span>;
   return (
@@ -245,9 +256,14 @@ function FriendItem({ uid, onRemove, onClick }) {
       <img src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${uid}`} alt="avatar" className="w-8 h-8 rounded-full object-cover border-2 border-indigo-500" />
       <span className="font-semibold text-sm text-white">{profile.pseudo || profile.email || uid}</span>
       {profile.discriminator && <span className="text-xs text-purple-300 ml-1">#{profile.discriminator}</span>}
-      {onRemove && (
-        <button onClick={e => { e.stopPropagation(); onRemove(uid); }} className="text-xs text-red-400 hover:underline ml-2">Supprimer</button>
-      )}
+      <div className="flex gap-1 ml-auto">
+        {onInvite && (
+          <button onClick={e => { e.stopPropagation(); onInvite(uid); }} className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded">Inviter</button>
+        )}
+        {onRemove && (
+          <button onClick={e => { e.stopPropagation(); onRemove(uid); }} className="text-xs text-red-400 hover:underline">Supprimer</button>
+        )}
+      </div>
     </div>
   );
 }
@@ -255,7 +271,10 @@ function FriendItem({ uid, onRemove, onClick }) {
 function FriendProfileModal({ uid, onClose, onRemove, onDM }) {
   const [profile, setProfile] = useState(null);
   useEffect(() => {
-    getDoc(doc(db, "users", uid)).then(snap => setProfile(snap.data()));
+    const unsub = onSnapshot(doc(db, "users", uid), (snap) => {
+      setProfile(snap.data());
+    });
+    return () => unsub();
   }, [uid]);
   if (!profile) return null;
   const createdAt = profile.createdAt ? new Date(profile.createdAt.seconds * 1000).toLocaleDateString() : "?";

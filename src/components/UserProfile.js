@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { auth, db, storage } from "../firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const statusOptions = [
@@ -41,12 +41,11 @@ export default function UserProfile() {
 
   useEffect(() => {
     if (!user) return;
-    const fetchProfile = async () => {
-      const snap = await getDoc(doc(db, "users", user.uid));
+    const unsub = onSnapshot(doc(db, "users", user.uid), (snap) => {
       if (snap.exists()) setProfile(snap.data());
       setLoading(false);
-    };
-    fetchProfile();
+    });
+    return () => unsub();
   }, [user]);
 
   useEffect(() => {

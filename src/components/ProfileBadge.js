@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { auth, db } from "../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 
 const statusColors = {
   online: "bg-green-500",
@@ -15,11 +15,10 @@ export default function ProfileBadge({ onEdit }) {
 
   useEffect(() => {
     if (!user) return;
-    const fetchProfile = async () => {
-      const snap = await getDoc(doc(db, "users", user.uid));
+    const unsub = onSnapshot(doc(db, "users", user.uid), (snap) => {
       if (snap.exists()) setProfile(snap.data());
-    };
-    fetchProfile();
+    });
+    return () => unsub();
   }, [user]);
 
   if (!user) return null;
