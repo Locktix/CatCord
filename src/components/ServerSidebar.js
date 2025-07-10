@@ -9,6 +9,7 @@ import { signOut } from 'firebase/auth';
 import ServerSettingsModal from './ServerSettingsModal';
 import FriendListModal from './FriendListModal';
 
+
 export default function ServerSidebar({ user, selectedServer, setSelectedServer, setSelectedChannel, onShowDM }) {
   const [servers, setServers] = useState([]);
   const [showForm, setShowForm] = useState(false);

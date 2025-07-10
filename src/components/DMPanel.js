@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { auth, db, storage } from "../firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion, deleteDoc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { useNotifications } from "./NotificationSystem";
 import CallModal from "./CallModal";
 
 export default function DMPanel({ dmId, onBack }) {
@@ -19,6 +20,8 @@ export default function DMPanel({ dmId, onBack }) {
   const [conversationExists, setConversationExists] = useState(true);
   const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState(null);
+  const { addNotification } = useNotifications();
+  const lastMessageTimeRef = useRef(null);
 
   useEffect(() => {
     if (!dmId || typeof dmId !== 'string') {
@@ -27,7 +30,35 @@ export default function DMPanel({ dmId, onBack }) {
     }
     const q = query(collection(db, "privateConversations", dmId, "messages"), orderBy("createdAt"));
     const unsub = onSnapshot(q, snap => {
-      setMessages(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const msgs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setMessages(msgs);
+      
+      console.log('Messages DM actuels:', msgs.length);
+      
+      // Détecter les nouveaux messages DM en utilisant le timestamp
+      if (msgs.length > 0) {
+        const latestMessage = msgs[msgs.length - 1];
+        const messageTime = latestMessage.createdAt?.toDate?.() || new Date();
+        
+        if (lastMessageTimeRef.current && messageTime > lastMessageTimeRef.current) {
+          console.log('Nouveau message DM détecté par timestamp');
+          console.log('Message:', latestMessage);
+          console.log('Auteur:', latestMessage.author, 'Utilisateur actuel:', user?.uid);
+          
+          if (latestMessage.author !== user?.uid) {
+            console.log('Notification pour DM de:', otherUser?.pseudo || 'Quelqu\'un');
+            addNotification('dm', {
+              title: `Message privé de ${otherUser?.pseudo || 'Quelqu\'un'}`,
+              body: latestMessage.text || latestMessage.fileUrl ? 'Fichier envoyé' : 'Nouveau message',
+              soundType: 'dm'
+            });
+          } else {
+            console.log('Message de l\'utilisateur actuel, pas de notification');
+          }
+        }
+        
+        lastMessageTimeRef.current = messageTime;
+      }
     }, (error) => {
       // Si la conversation n'existe plus
       console.log("Conversation introuvable:", error);

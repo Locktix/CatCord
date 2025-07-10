@@ -11,6 +11,7 @@ import DMPanel from './components/DMPanel';
 import CallNotification from './components/CallNotification';
 import LoadingScreen from './components/LoadingScreen';
 import { doc, getDoc } from 'firebase/firestore';
+import { useNotifications, NotificationBubbles } from './components/NotificationSystem';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -21,6 +22,19 @@ function App() {
   const [selectedDM, setSelectedDM] = useState(null);
   const [dmConversations, setDmConversations] = useState([]);
   const [friends, setFriends] = useState([]);
+  
+  // Système de notifications
+  const {
+    notifications,
+    addNotification,
+    removeNotification,
+    isEnabled,
+    soundEnabled,
+    windowsNotifications,
+    toggleNotifications,
+    toggleSound,
+    toggleWindowsNotifications
+  } = useNotifications();
 
   useEffect(() => {
     const startTime = Date.now();
@@ -163,6 +177,12 @@ function App() {
         </>
       )}
       <CallNotification />
+      
+      {/* Bulles de notifications */}
+      <NotificationBubbles 
+        notifications={notifications} 
+        onRemove={removeNotification} 
+      />
     </div>
   );
 }

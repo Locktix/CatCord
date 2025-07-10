@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import UserProfile from "./UserProfile";
+import { NotificationSettings } from "./NotificationSystem";
 
 const categories = [
   { key: "account", label: "Mon compte" },
   { key: "appearance", label: "Apparence" },
+  { key: "notifications", label: "Notifications" },
   { key: "lang", label: "Langues" },
   { key: "advanced", label: "Avancés" },
   { key: "logout", label: "Déconnexion" },
@@ -18,6 +20,11 @@ export default function SettingsModal({ onClose, onLogout }) {
   const [fontSize, setFontSize] = useState(() => localStorage.getItem("catcord_fontSize") || "normal");
   const [avatarShape, setAvatarShape] = useState(() => localStorage.getItem("catcord_avatarShape") || "round");
   const [success, setSuccess] = useState("");
+  
+  // Paramètres de notifications (à connecter avec le hook useNotifications)
+  const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(true);
+  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
+  const [isWindowsNotificationsEnabled, setIsWindowsNotificationsEnabled] = useState(true);
 
   // Appliquer la taille de police dynamiquement
   useEffect(() => {
@@ -64,6 +71,22 @@ export default function SettingsModal({ onClose, onLogout }) {
               </div>
               {success && <div className="text-green-400 text-sm text-center mt-2">{success}</div>}
             </>}
+            {selected === "notifications" && (
+              <>
+                <NotificationSettings
+                  isEnabled={isNotificationsEnabled}
+                  soundEnabled={isSoundEnabled}
+                  windowsNotifications={isWindowsNotificationsEnabled}
+                  onToggleNotifications={() => setIsNotificationsEnabled(!isNotificationsEnabled)}
+                  onToggleSound={() => setIsSoundEnabled(!isSoundEnabled)}
+                  onToggleWindowsNotifications={() => setIsWindowsNotificationsEnabled(!isWindowsNotificationsEnabled)}
+                />
+                <div className="mt-6 flex justify-end">
+                  <button onClick={handleSave} className="bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded text-white font-semibold">Enregistrer</button>
+                </div>
+                {success && <div className="text-green-400 text-sm text-center mt-2">{success}</div>}
+              </>
+            )}
             {selected === "appearance" && (
               <>
                 <div>

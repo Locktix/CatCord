@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { db, auth, storage } from "../firebase";
 import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, doc, getDoc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { useNotifications } from "./NotificationSystem";
 
 const statusColors = {
   online: "bg-green-500",
@@ -21,6 +22,8 @@ export default function MessageList({ channelId }) {
   const [showUploadCanceled, setShowUploadCanceled] = useState(false);
   const user = auth.currentUser;
   const bottomRef = useRef(null);
+  const { addNotification } = useNotifications();
+  const lastMessageTimeRef = useRef(null);
 
   useEffect(() => {
     if (!channelId) return;
@@ -33,6 +36,35 @@ export default function MessageList({ channelId }) {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setMessages(msgs);
       setLoading(false);
+      
+      console.log('Messages de salon actuels:', msgs.length);
+      
+      // Détecter les nouveaux messages en utilisant le timestamp
+      if (msgs.length > 0) {
+        const latestMessage = msgs[msgs.length - 1];
+        const messageTime = latestMessage.createdAt?.toDate?.() || new Date();
+        
+        if (lastMessageTimeRef.current && messageTime > lastMessageTimeRef.current) {
+          console.log('Nouveau message de salon détecté par timestamp');
+          console.log('Message:', latestMessage);
+          console.log('Auteur:', latestMessage.authorId, 'Utilisateur actuel:', user?.uid);
+          
+          if (latestMessage.authorId !== user?.uid) {
+            const authorProfile = profiles[latestMessage.authorId] || {};
+            console.log('Notification pour message de:', authorProfile.pseudo || latestMessage.author);
+            addNotification('message', {
+              title: `Nouveau message de ${authorProfile.pseudo || latestMessage.author}`,
+              body: latestMessage.content || 'Fichier envoyé',
+              soundType: 'message'
+            });
+          } else {
+            console.log('Message de l\'utilisateur actuel, pas de notification');
+          }
+        }
+        
+        lastMessageTimeRef.current = messageTime;
+      }
+      
       // Récupérer les profils des auteurs
       const uids = Array.from(new Set(msgs.map(m => m.authorId)));
       Promise.all(uids.map(async uid => {
