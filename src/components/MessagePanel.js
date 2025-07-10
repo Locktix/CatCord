@@ -1,10 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import MessageList from "./MessageList";
 
 export default function MessagePanel({ channelId, selectedServer }) {
   const [channel, setChannel] = useState(null);
+  const [serverInfo, setServerInfo] = useState({ owner: null, admins: [] });
+
+  useEffect(() => {
+    if (!selectedServer) return;
+    const unsub = onSnapshot(doc(db, "servers", selectedServer), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setServerInfo({ owner: data.owner, admins: data.admins || [] });
+      }
+    });
+    return () => unsub();
+  }, [selectedServer]);
 
   useEffect(() => {
     if (!channelId) return setChannel(null);
@@ -57,7 +69,7 @@ export default function MessagePanel({ channelId, selectedServer }) {
         <span className="text-purple-400">#</span> {channel ? channel.name : "..."}
       </div>
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-700 scrollbar-track-gray-900 min-h-0">
-        <MessageList channelId={channelId} />
+        <MessageList channelId={channelId} serverOwner={serverInfo.owner} serverAdmins={serverInfo.admins} />
       </div>
     </div>
   );
