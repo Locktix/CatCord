@@ -59,11 +59,15 @@ export default function CallModal({ open, onClose, otherUser, dmId, isReceiver =
     const listeners = {};
     listeners.unsubOffer = onSnapshot(offerDoc, async (snap) => {
       const data = snap.data();
-      console.log("Offre reçue (brut):", data);
+      if (!data || typeof data.offer !== "object") {
+        // Document sans offre valide, on ignore
+        return;
+      }
+      console.log("Offre reçue (brut):", data.offer);
       setDebugInfo(`Offre reçue: ${data ? JSON.stringify(data) : 'non'}`);
       if (data && data.offer) {
         console.log("ACCEPTCALL VA ETRE APPELEE", data.offer);
-        setDebugInfo("Offre valide, acceptation...");
+        setDebugInfo("Offre reçue, acceptation...");
         setIsCallActive(true);
         await acceptCall(data.offer);
       } else {
@@ -75,7 +79,8 @@ export default function CallModal({ open, onClose, otherUser, dmId, isReceiver =
     });
     listeners.unsubAnswer = onSnapshot(answerDoc, async (snap) => {
       const data = snap.data();
-      console.log("Réponse reçue:", data);
+      if (!data || !data.answer) return; // Ignore les docs invalides
+      console.log("Réponse reçue:", data.answer);
       setDebugInfo(`Réponse reçue: ${data ? JSON.stringify(data) : 'non'}`);
       if (data && data.to === user.uid && data.from === otherUser.uid) {
         if (data.answer === "declined") {
@@ -243,32 +248,18 @@ export default function CallModal({ open, onClose, otherUser, dmId, isReceiver =
       });
       const unsubAnswer = onSnapshot(answerDoc, async (snap) => {
         const data = snap.data();
-        console.log("Réponse reçue:", data);
-        setDebugInfo(`Réponse reçue: ${data ? JSON.stringify(data) : 'non'}`);
-                 if (
-           data &&
-           data.to === user.uid &&
-           data.from === otherUser.uid &&
-           data.answer &&
-           data.answer.type === "answer"
-         ) {
-           if (!remoteAnswerSet.current) {
-             await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-             for (const candidate of pendingCandidates.current) {
-               try {
-                 await pc.addIceCandidate(new RTCIceCandidate(candidate));
-               } catch (e) {
-                 console.error("Erreur ajout ICE candidate (buffer):", e);
-               }
-             }
-            pendingCandidates.current = [];
-            setCallState("in-call");
-            setDebugInfo("Appel connecté");
-            remoteAnswerSet.current = true; // Marque comme fait
-          }
-        } else if (data && data.answer === "declined") {
-          setError("L'appel a été refusé");
-          setCallState("ended");
+        if (!data || (typeof data.answer !== "object" && data.answer !== "declined")) {
+          // Document sans réponse valide, on ignore
+          return;
+        }
+        console.log("Réponse reçue:", data.answer);
+        if (data.answer && typeof data.answer === "object" && !remoteAnswerSet.current) {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          for (const c of pendingCandidates.current) { try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {} }
+          pendingCandidates.current = [];
+          setCallState("in-call");
+          setDebugInfo("Appel connecté");
+          remoteAnswerSet.current = true; // Marque comme fait
         }
       });
       const unsubRemoteIce = onSnapshot(remoteIceDoc, async (snap) => {
