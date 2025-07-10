@@ -14,11 +14,12 @@ export default function DMPanel({ dmId, onBack }) {
   const messagesEndRef = useRef(null);
   const [showCall, setShowCall] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [uploadTaskRef, setUploadTaskRef] = useState(null);
   const [showUploadCanceled, setShowUploadCanceled] = useState(false);
   const [conversationExists, setConversationExists] = useState(true);
-  const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] = useState(false);
-  const [messageToDelete, setMessageToDelete] = useState(null);
+  const [hasActiveCall, setHasActiveCall] = useState(false); // Pour désactiver le bouton Appeler
 
   useEffect(() => {
     if (!dmId || typeof dmId !== 'string') {
@@ -37,7 +38,8 @@ export default function DMPanel({ dmId, onBack }) {
   }, [dmId]);
 
   useEffect(() => {
-    if (!dmId || typeof dmId !== 'string' || !user) return;
+    if (!dmId || !user) return;
+    
     const fetchOtherUser = async () => {
       try {
         const convSnap = await getDoc(doc(db, "privateConversations", dmId));
@@ -45,26 +47,41 @@ export default function DMPanel({ dmId, onBack }) {
           setConversationExists(false);
           return;
         }
-        const members = convSnap.data().members;
-        const otherUid = members.find(uid => uid !== user.uid);
-        if (!otherUid) return;
-        const userSnap = await getDoc(doc(db, "users", otherUid));
-        setOtherUser(userSnap.exists() ? { uid: otherUid, ...userSnap.data() } : { uid: otherUid });
+        
+        const convData = convSnap.data();
+        const otherUid = convData.members.find(uid => uid !== user.uid);
+        if (otherUid) {
+          const userSnap = await getDoc(doc(db, "users", otherUid));
+          setOtherUser(userSnap.exists() ? { uid: otherUid, ...userSnap.data() } : { uid: otherUid });
+        }
       } catch (error) {
-        console.log("Erreur lors de la récupération de la conversation:", error);
+        console.error("Erreur lors de la récupération de l'utilisateur:", error);
         setConversationExists(false);
       }
     };
+    
     fetchOtherUser();
   }, [dmId, user]);
 
+  // Vérifier s'il y a déjà un appel en cours
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (!dmId || !user || !otherUser) return;
+    
+    const callDocId = `${dmId}_${user.uid}_${otherUser.uid}`;
+    const offerDoc = doc(db, "calls", `offer_${callDocId}`);
+    
+    const unsubCall = onSnapshot(offerDoc, (snap) => {
+      const data = snap.data();
+      // Si il y a une offre d'appel (soit de nous vers l'autre, soit de l'autre vers nous)
+      setHasActiveCall(!!data);
+    });
+    
+    return () => unsubCall();
+  }, [dmId, user, otherUser]);
 
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!input.trim() || !dmId || typeof dmId !== 'string') return;
+    if (!input.trim() || uploading) return;
     
     try {
       await addDoc(collection(db, "privateConversations", dmId, "messages"), {
@@ -73,63 +90,61 @@ export default function DMPanel({ dmId, onBack }) {
         createdAt: serverTimestamp(),
       });
       setInput("");
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     } catch (error) {
-      console.error("Erreur lors de l'envoi du message:", error);
+      console.error("Erreur lors de l'envoi:", error);
       alert("Erreur lors de l'envoi du message");
     }
   };
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    if (!file || !dmId || typeof dmId !== 'string') return;
+    if (!file || uploading) return;
+    
     setUploading(true);
     setUploadProgress(0);
+    
     try {
-      const fileRef = ref(storage, `dmFiles/${dmId}/${Date.now()}_${file.name}`);
-      const uploadTask = uploadBytesResumable(fileRef, file);
+      const storageRef = ref(storage, `dm-files/${dmId}/${Date.now()}_${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
       setUploadTaskRef(uploadTask);
+      
       uploadTask.on('state_changed',
         (snapshot) => {
-          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-          setUploadProgress(progress);
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(Math.round(progress));
         },
-        (err) => {
-          if (err.code === 'storage/canceled') {
-            setShowUploadCanceled(true);
-          } else {
-            alert("Erreur lors de l'envoi du fichier");
-          }
+        (error) => {
+          console.error("Erreur upload:", error);
           setUploading(false);
-          setUploadTaskRef(null);
+          alert("Erreur lors de l'upload du fichier");
         },
         async () => {
           try {
-            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             await addDoc(collection(db, "privateConversations", dmId, "messages"), {
-              fileUrl: url,
+              text: file.name,
+              fileUrl: downloadURL,
               fileName: file.name,
               fileType: file.type,
               author: user.uid,
               createdAt: serverTimestamp(),
-              text: "",
             });
             setUploading(false);
             setUploadProgress(0);
-            setUploadTaskRef(null);
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
           } catch (error) {
-            console.error("Erreur finalisation upload:", error);
+            console.error("Erreur sauvegarde message:", error);
             setUploading(false);
-            setUploadTaskRef(null);
+            alert("Erreur lors de la sauvegarde du message");
           }
         }
       );
-    } catch (err) {
-      console.error("Erreur lors de l'envoi du fichier:", err);
-      alert("Erreur lors de l'envoi du fichier");
+    } catch (error) {
+      console.error("Erreur upload:", error);
       setUploading(false);
-      setUploadTaskRef(null);
+      alert("Erreur lors de l'upload du fichier");
     }
-    e.target.value = "";
   };
 
   const handleCancelUpload = () => {
@@ -137,74 +152,49 @@ export default function DMPanel({ dmId, onBack }) {
       uploadTaskRef.cancel();
       setUploading(false);
       setUploadProgress(0);
-      setUploadTaskRef(null);
+      setShowUploadCanceled(true);
     }
   };
 
   const downloadFile = async (fileUrl, fileName) => {
     try {
-      // Créer un lien temporaire pour le téléchargement
       const response = await fetch(fileUrl);
       const blob = await response.blob();
-      
-      // Créer un URL pour le blob
       const url = window.URL.createObjectURL(blob);
-      
-      // Créer un élément <a> temporaire
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      
-      // Déclencher le téléchargement
-      document.body.appendChild(link);
-      link.click();
-      
-      // Nettoyer
-      document.body.removeChild(link);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
       window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
-      console.error("Erreur lors du téléchargement:", error);
-      alert("Erreur lors du téléchargement du fichier");
+      console.error("Erreur téléchargement:", error);
+      alert("Erreur lors du téléchargement");
     }
   };
 
   const handleDeleteMessage = async (msgId) => {
-    setMessageToDelete(msgId);
-    setShowDeleteMessageConfirm(true);
-  };
-
-  const confirmDeleteMessage = async () => {
-    if (!messageToDelete) return;
+    if (!window.confirm("Supprimer ce message ?")) return;
     
     try {
-      // Récupérer le message pour obtenir l'URL du fichier
-      const messageDoc = await getDoc(doc(db, "privateConversations", dmId, "messages", messageToDelete));
-      const messageData = messageDoc.data();
-      
-      // Supprimer le fichier de Firebase Storage si il existe
-      if (messageData.fileUrl) {
-        try {
-          const fileRef = ref(storage, messageData.fileUrl);
-          await deleteObject(fileRef);
-        } catch (storageError) {
-          console.log("Fichier déjà supprimé ou introuvable:", storageError);
-        }
-      }
-      
-      // Supprimer le message de Firestore
-      await deleteDoc(doc(db, "privateConversations", dmId, "messages", messageToDelete));
-      
-      setShowDeleteMessageConfirm(false);
-      setMessageToDelete(null);
+      await deleteDoc(doc(db, "privateConversations", dmId, "messages", msgId));
     } catch (error) {
       console.error("Erreur lors de la suppression:", error);
       alert("Erreur lors de la suppression du message");
-      setShowDeleteMessageConfirm(false);
-      setMessageToDelete(null);
     }
   };
 
-
+  // Supprimer la conversation (pour l'utilisateur courant)
+  const handleDeleteConversation = async () => {
+    setDeleting(true);
+    await updateDoc(doc(db, "privateConversations", dmId), {
+      members: arrayUnion("__deleted__"),
+      members: (otherUser ? [otherUser.uid] : [])
+    });
+    setDeleting(false);
+    window.location.reload();
+  };
 
   if (!dmId || typeof dmId !== 'string' || !conversationExists) return (
     <div className="flex-1 flex items-center justify-center text-purple-300 text-lg">
@@ -222,7 +212,18 @@ export default function DMPanel({ dmId, onBack }) {
           <>
             <img src={otherUser.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${otherUser.uid}`} alt="avatar" className="w-8 h-8 rounded-full object-cover border-2 border-indigo-500" />
             <span>DM avec {otherUser.pseudo ? `${otherUser.pseudo}${otherUser.discriminator ? '#' + otherUser.discriminator : ''}` : otherUser.uid}</span>
-            <button onClick={() => setShowCall(true)} className="ml-4 px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-white text-sm font-semibold">📞 Appeler</button>
+            <button 
+              onClick={() => setShowCall(true)} 
+              disabled={hasActiveCall}
+              className={`ml-4 px-3 py-1 rounded text-white text-sm font-semibold ${
+                hasActiveCall 
+                  ? 'bg-gray-600 cursor-not-allowed' 
+                  : 'bg-green-600 hover:bg-green-500'
+              }`}
+              title={hasActiveCall ? "Appel en cours..." : "Appeler"}
+            >
+              📞 {hasActiveCall ? "Appel en cours..." : "Appeler"}
+            </button>
           </>
         )}
         {/* Bouton settings */}
@@ -234,7 +235,14 @@ export default function DMPanel({ dmId, onBack }) {
         {showSettings && (
           <div className="absolute top-12 right-6 bg-gray-900 border border-gray-700 rounded shadow-lg z-50 min-w-[220px]">
             <button
-              className="w-full text-left px-4 py-3 hover:bg-gray-800 text-purple-200 font-semibold"
+              className="w-full text-left px-4 py-3 hover:bg-gray-800 text-red-400 font-semibold rounded-t"
+              onClick={() => { setShowSettings(false); setShowDeleteConfirm(true); }}
+              disabled={deleting}
+            >
+              Supprimer la conversation
+            </button>
+            <button
+              className="w-full text-left px-4 py-3 hover:bg-gray-800 text-purple-200 font-semibold rounded-b"
               onClick={() => setShowSettings(false)}
             >
               Fermer
@@ -329,7 +337,30 @@ export default function DMPanel({ dmId, onBack }) {
           dmId={dmId}
         />
       )}
-
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+          <div className="bg-gray-900 rounded-xl p-8 shadow-xl flex flex-col items-center max-w-sm w-full">
+            <div className="text-lg text-red-400 font-bold mb-4">Supprimer la conversation ?</div>
+            <div className="text-purple-200 mb-6 text-center">Cette conversation disparaîtra de votre liste, mais pas de celle de l'autre utilisateur. Cette action est irréversible.</div>
+            <div className="flex gap-4 mt-2">
+              <button
+                onClick={handleDeleteConversation}
+                disabled={deleting}
+                className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-bold"
+              >
+                {deleting ? "Suppression..." : "Supprimer"}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded text-white"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showUploadCanceled && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
           <div className="bg-gray-900 rounded-xl p-8 shadow-xl flex flex-col items-center max-w-sm w-full">
@@ -339,31 +370,6 @@ export default function DMPanel({ dmId, onBack }) {
               onClick={() => setShowUploadCanceled(false)}
               className="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded text-white font-bold"
             >OK</button>
-          </div>
-        </div>
-      )}
-      {showDeleteMessageConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-          <div className="bg-gray-900 rounded-xl p-8 shadow-xl flex flex-col items-center max-w-sm w-full">
-            <div className="text-lg text-red-400 font-bold mb-4">Supprimer le message ?</div>
-            <div className="text-purple-200 mb-6 text-center">Ce message sera définitivement supprimé. Cette action est irréversible.</div>
-            <div className="flex gap-4 mt-2">
-              <button
-                onClick={confirmDeleteMessage}
-                className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-bold"
-              >
-                Supprimer
-              </button>
-              <button
-                onClick={() => {
-                  setShowDeleteMessageConfirm(false);
-                  setMessageToDelete(null);
-                }}
-                className="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded text-white"
-              >
-                Annuler
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -426,8 +432,20 @@ function InviteMessage({ msg, user, dmId }) {
         <div className="text-purple-300 text-sm">En attente de réponse...</div>
       ) : (
         <div className="flex gap-2">
-          <button onClick={handleAccept} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-semibold">Accepter</button>
-          <button onClick={handleRefuse} disabled={loading} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-semibold">Refuser</button>
+          <button
+            onClick={handleAccept}
+            disabled={loading}
+            className="bg-green-600 hover:bg-green-500 px-3 py-1 rounded text-white text-sm font-semibold"
+          >
+            {loading ? "..." : "Accepter"}
+          </button>
+          <button
+            onClick={handleRefuse}
+            disabled={loading}
+            className="bg-red-600 hover:bg-red-500 px-3 py-1 rounded text-white text-sm font-semibold"
+          >
+            {loading ? "..." : "Refuser"}
+          </button>
         </div>
       )}
     </div>
