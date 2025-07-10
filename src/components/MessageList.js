@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
-import { db, auth } from "../firebase";
+import { db, auth, storage } from "../firebase";
 import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, doc, getDoc } from "firebase/firestore";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 const statusColors = {
   online: "bg-green-500",
@@ -14,6 +15,10 @@ export default function MessageList({ channelId }) {
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState({});
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadTaskRef, setUploadTaskRef] = useState(null);
+  const [showUploadCanceled, setShowUploadCanceled] = useState(false);
   const user = auth.currentUser;
   const bottomRef = useRef(null);
 
@@ -59,6 +64,88 @@ export default function MessageList({ channelId }) {
     setNewMessage("");
   };
 
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadProgress(0);
+    try {
+      const fileRef = ref(storage, `channelFiles/${channelId}/${Date.now()}_${file.name}`);
+      const uploadTask = uploadBytesResumable(fileRef, file);
+      setUploadTaskRef(uploadTask);
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          setUploadProgress(progress);
+        },
+        (err) => {
+          if (err.code === 'storage/canceled') {
+            setShowUploadCanceled(true);
+          } else {
+            alert("Erreur lors de l'envoi du fichier");
+          }
+          setUploading(false);
+          setUploadTaskRef(null);
+        },
+        async () => {
+          try {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            await addDoc(collection(db, "messages"), {
+              fileUrl: url,
+              fileName: file.name,
+              fileType: file.type,
+              channelId,
+              author: user.email,
+              authorId: user.uid,
+              createdAt: serverTimestamp(),
+              content: "",
+            });
+            setUploading(false);
+            setUploadProgress(0);
+            setUploadTaskRef(null);
+          } catch (error) {
+            console.error("Erreur finalisation upload:", error);
+            setUploading(false);
+            setUploadTaskRef(null);
+          }
+        }
+      );
+    } catch (err) {
+      console.error("Erreur lors de l'envoi du fichier:", err);
+      alert("Erreur lors de l'envoi du fichier");
+      setUploading(false);
+      setUploadTaskRef(null);
+    }
+    e.target.value = "";
+  };
+
+  const handleCancelUpload = () => {
+    if (uploadTaskRef) {
+      uploadTaskRef.cancel();
+      setUploading(false);
+      setUploadProgress(0);
+      setUploadTaskRef(null);
+    }
+  };
+
+  const downloadFile = async (fileUrl, fileName) => {
+    try {
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Erreur lors du téléchargement:", error);
+      alert("Erreur lors du téléchargement du fichier");
+    }
+  };
+
   if (!channelId) return null;
 
   return (
@@ -88,7 +175,38 @@ export default function MessageList({ channelId }) {
                     <span className="font-semibold text-sm text-purple-200">{p.pseudo || msg.author}</span>
                     <span className="text-xs text-purple-400 opacity-60">{msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString() : ''}</span>
                   </div>
-                  <div className="text-base break-words">{msg.content}</div>
+                  <div className="text-base break-words">
+                    {msg.fileUrl ? (
+                      msg.fileType && msg.fileType.startsWith('image/') ? (
+                        <div>
+                          <img 
+                            src={msg.fileUrl} 
+                            alt={msg.fileName} 
+                            className="max-w-[200px] max-h-[200px] rounded mb-1" 
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.textContent = '❌ Image non disponible';
+                            }}
+                          />
+                          <button 
+                            onClick={() => downloadFile(msg.fileUrl, msg.fileName)}
+                            className="text-xs text-indigo-300 hover:text-indigo-200 underline cursor-pointer"
+                          >
+                            📥 {msg.fileName}
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => downloadFile(msg.fileUrl, msg.fileName)}
+                          className="text-indigo-300 hover:text-indigo-200 underline cursor-pointer"
+                        >
+                          📎 📥 {msg.fileName}
+                        </button>
+                      )
+                    ) : (
+                      msg.content
+                    )}
+                  </div>
                 </div>
                 {msg.authorId === user.uid && (
                   <div className="relative">
@@ -106,16 +224,45 @@ export default function MessageList({ channelId }) {
         )}
         <div ref={bottomRef} />
       </div>
+      {showUploadCanceled && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+          <div className="bg-gray-900 rounded-xl p-8 shadow-xl flex flex-col items-center max-w-sm w-full">
+            <div className="text-lg text-purple-300 font-bold mb-4">Envoi annulé</div>
+            <div className="text-purple-200 mb-6 text-center">L'envoi du fichier a été annulé.</div>
+            <button
+              onClick={() => setShowUploadCanceled(false)}
+              className="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded text-white font-bold"
+            >OK</button>
+          </div>
+        </div>
+      )}
       <form onSubmit={handleSendMessage} className="flex gap-2 p-3 border-t border-gray-800 bg-gray-900 rounded-b-xl">
+        <label className="flex items-center cursor-pointer">
+          <span className="text-2xl px-2 text-purple-300 hover:text-white">📎</span>
+          <input type="file" className="hidden" onChange={handleFileChange} disabled={uploading} />
+        </label>
         <input
           type="text"
           placeholder="Écrire un message..."
           value={newMessage}
           onChange={e => setNewMessage(e.target.value)}
           className="flex-1 px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none"
-          required
+          disabled={uploading}
         />
-        <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded text-white font-semibold">Envoyer</button>
+        <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded text-white font-semibold" disabled={uploading}>Envoyer</button>
+        {uploading && (
+          <div className="flex items-center gap-2 ml-2 w-40">
+            <div className="flex-1 h-2 bg-gray-700 rounded">
+              <div className="h-2 bg-indigo-500 rounded" style={{ width: `${uploadProgress}%` }}></div>
+            </div>
+            <span className="text-xs text-purple-200 w-8 text-right">{uploadProgress}%</span>
+            <button
+              type="button"
+              onClick={handleCancelUpload}
+              className="ml-2 text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded"
+            >Annuler</button>
+          </div>
+        )}
       </form>
     </div>
   );

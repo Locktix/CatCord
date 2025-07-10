@@ -113,10 +113,18 @@ export default function ServerSidebar({ user, selectedServer, setSelectedServer,
           <div key={server.id} className="relative flex items-center justify-center w-full">
             <button
               onClick={() => { setSelectedServer(server.id); setSelectedChannel(null); }}
-              className={`w-12 h-12 flex items-center justify-center rounded-full text-xl font-bold transition border-2 ${selectedServer === server.id ? 'border-indigo-400 bg-indigo-600' : 'border-transparent bg-gray-800 hover:bg-indigo-700'}`}
+              className={`w-12 h-12 flex items-center justify-center rounded-full text-xl font-bold transition border-2 overflow-hidden ${selectedServer === server.id ? 'border-indigo-400 bg-indigo-600' : 'border-transparent bg-gray-800 hover:bg-indigo-700'}`}
               title={server.name}
             >
-              {server.name[0]?.toUpperCase()}
+              {server.icon ? (
+                <img 
+                  src={server.icon} 
+                  alt={server.name} 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                server.name[0]?.toUpperCase()
+              )}
             </button>
             {/* Bouton paramètres serveur si owner */}
             {selectedServer === server.id && server.owner === user?.uid && (
@@ -153,7 +161,7 @@ export default function ServerSidebar({ user, selectedServer, setSelectedServer,
       </div>
       {/* Modale paramètres serveur */}
       {showServerSettings && selectedServerData && (
-        <ServerSettingsModal server={selectedServerData} onClose={() => setShowServerSettings(false)} />
+        <ServerSettingsModal serverId={selectedServerData.id} onClose={() => setShowServerSettings(false)} />
       )}
       {/* Modale amis */}
       {showFriends && (
