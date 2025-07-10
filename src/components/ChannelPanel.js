@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { db } from "../firebase";
-import { collection, addDoc, query, where, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { db, auth } from "../firebase";
+import { collection, addDoc, query, where, onSnapshot, serverTimestamp, doc, getDoc } from "firebase/firestore";
 
 export default function ChannelPanel({ serverId, selectedChannel, setSelectedChannel }) {
   const [channels, setChannels] = useState([]);
   const [newChannelName, setNewChannelName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [server, setServer] = useState(null);
+  const [isOwner, setIsOwner] = useState(false);
+  const user = auth.currentUser;
 
   useEffect(() => {
     if (!serverId) return;
@@ -18,9 +21,23 @@ export default function ChannelPanel({ serverId, selectedChannel, setSelectedCha
     return () => unsub();
   }, [serverId]);
 
+  // Vérifier si l'utilisateur est propriétaire du serveur
+  useEffect(() => {
+    if (!serverId || !user) return;
+    const fetchServer = async () => {
+      const serverDoc = await getDoc(doc(db, "servers", serverId));
+      if (serverDoc.exists()) {
+        const serverData = serverDoc.data();
+        setServer(serverData);
+        setIsOwner(serverData.owner === user.uid);
+      }
+    };
+    fetchServer();
+  }, [serverId, user]);
+
   const handleCreateChannel = async (e) => {
     e.preventDefault();
-    if (!newChannelName.trim()) return;
+    if (!newChannelName.trim() || !isOwner) return;
     const docRef = await addDoc(collection(db, "channels"), {
       name: newChannelName,
       serverId,
@@ -35,17 +52,19 @@ export default function ChannelPanel({ serverId, selectedChannel, setSelectedCha
   return (
     <div className="w-56 bg-gray-800 h-screen p-4 border-r border-gray-900 flex flex-col">
       <h3 className="text-lg font-bold mb-4">Salons</h3>
-      <form onSubmit={handleCreateChannel} className="flex gap-2 mb-4">
-        <input
-          type="text"
-          placeholder="Nouveau salon"
-          value={newChannelName}
-          onChange={e => setNewChannelName(e.target.value)}
-          className="flex-1 px-2 py-1 rounded bg-gray-900 text-white border border-gray-700 focus:outline-none text-sm min-w-0"
-          required
-        />
-        <button type="submit" className="w-9 h-9 flex items-center justify-center bg-purple-600 hover:bg-purple-500 rounded text-white text-xl font-bold p-0 transition shadow">+</button>
-      </form>
+      {isOwner && (
+        <form onSubmit={handleCreateChannel} className="flex gap-2 mb-4">
+          <input
+            type="text"
+            placeholder="Nouveau salon"
+            value={newChannelName}
+            onChange={e => setNewChannelName(e.target.value)}
+            className="flex-1 px-2 py-1 rounded bg-gray-900 text-white border border-gray-700 focus:outline-none text-sm min-w-0"
+            required
+          />
+          <button type="submit" className="w-9 h-9 flex items-center justify-center bg-purple-600 hover:bg-purple-500 rounded text-white text-xl font-bold p-0 transition shadow">+</button>
+        </form>
+      )}
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-700 scrollbar-track-gray-900 min-h-0">
         {loading ? (
           <div className="text-purple-200">Chargement...</div>
