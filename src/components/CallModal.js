@@ -1,3 +1,5 @@
+// TODO DELETE ALL DOCS ON CLEANUP
+
 import React, { useEffect, useRef, useState } from "react";
 import { db, auth } from "../firebase";
 import { doc, setDoc, onSnapshot, deleteDoc, collection, addDoc } from "firebase/firestore";
@@ -17,6 +19,7 @@ export default function CallModal({ open, onClose, otherUser, dmId, isReceiver =
 
   // ID SYMÉTRIQUE pour la signalisation (toujours le même pour les deux utilisateurs)
   const callDocId = [dmId, user.uid, otherUser.uid].sort().join('_');
+  console.log("callDocId utilisé :", callDocId, "user.uid:", user.uid, "otherUser.uid:", otherUser.uid, "dmId:", dmId);
   const offerDoc = doc(db, "calls", `offer_${callDocId}`);
   const answerDoc = doc(db, "calls", `answer_${callDocId}`);
   const localIceDoc = doc(db, "calls", `${callDocId}_ice_${user.uid}`);
@@ -59,23 +62,15 @@ export default function CallModal({ open, onClose, otherUser, dmId, isReceiver =
     const listeners = {};
     listeners.unsubOffer = onSnapshot(offerDoc, async (snap) => {
       const data = snap.data();
+      console.log("Data reçu dans waitForOffer:", data);
       if (!data || typeof data.offer !== "object") {
         // Document sans offre valide, on ignore
         return;
       }
       console.log("Offre reçue (brut):", data.offer);
       setDebugInfo(`Offre reçue: ${data ? JSON.stringify(data) : 'non'}`);
-      if (data && data.offer) {
-        console.log("ACCEPTCALL VA ETRE APPELEE", data.offer);
-        setDebugInfo("Offre reçue, acceptation...");
-        setIsCallActive(true);
-        await acceptCall(data.offer);
-      } else {
-        // Retry après un court délai
-        setTimeout(() => {
-          waitForOffer();
-        }, 200);
-      }
+      setIsCallActive(true);
+      await acceptCall(data.offer);
     });
     listeners.unsubAnswer = onSnapshot(answerDoc, async (snap) => {
       const data = snap.data();
@@ -128,7 +123,7 @@ export default function CallModal({ open, onClose, otherUser, dmId, isReceiver =
       });
       console.log("Réponse écrite dans Firestore !");
       try {
-        await deleteDoc(offerDoc);
+        //await deleteDoc(offerDoc);
       } catch (e) {
         console.log("Offre déjà supprimée");
       }
@@ -307,10 +302,10 @@ export default function CallModal({ open, onClose, otherUser, dmId, isReceiver =
       localStreamRef.current.getTracks().forEach(track => track.stop());
     }
     try {
-      await deleteDoc(offerDoc);
-      await deleteDoc(answerDoc);
-      await deleteDoc(localIceDoc);
-      await deleteDoc(remoteIceDoc);
+      //await deleteDoc(offerDoc);
+      //await deleteDoc(answerDoc);
+      //await deleteDoc(localIceDoc);
+     // await deleteDoc(remoteIceDoc);
     } catch (error) {
       console.log("Erreur lors du nettoyage des documents:", error);
     }
