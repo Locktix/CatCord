@@ -99,7 +99,7 @@ export default function ServerSettingsModal({ serverId, onClose }) {
     } catch (error) {
       console.error("Erreur lors de la sauvegarde:", error);
       alert("Erreur lors de la sauvegarde");
-      setSaving(false);
+    setSaving(false);
     }
   };
 
@@ -230,14 +230,14 @@ export default function ServerSettingsModal({ serverId, onClose }) {
           {/* Nom du serveur */}
           <div>
             <label className="block text-sm font-medium text-purple-200 mb-2">Nom du serveur</label>
-            <input
-              type="text"
+          <input
+            type="text"
               value={serverName}
               onChange={e => setServerName(e.target.value)}
               className="w-full px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:border-indigo-500"
               placeholder="Nom du serveur"
-            />
-          </div>
+          />
+        </div>
 
           {/* Inviter des membres */}
           <div>
@@ -271,19 +271,19 @@ export default function ServerSettingsModal({ serverId, onClose }) {
 
           {/* Bouton sauvegarder */}
           <div className="flex gap-3 pt-4">
-            <button
-              onClick={handleSave}
+          <button
+            onClick={handleSave}
               disabled={saving || !serverName.trim()}
               className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-600 px-4 py-2 rounded text-white font-semibold"
-            >
+          >
               {saving ? "Sauvegarde..." : "Sauvegarder"}
-            </button>
-            <button
+          </button>
+          <button
               onClick={onClose}
               className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white"
-            >
+          >
               Annuler
-            </button>
+          </button>
           </div>
         </div>
 
