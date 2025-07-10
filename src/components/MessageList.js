@@ -181,7 +181,7 @@ export default function MessageList({ channelId }) {
   if (!channelId) return null;
 
   return (
-    <div className="w-full max-w-md mx-auto mt-6 flex flex-col h-[400px] bg-gray-900 bg-opacity-60 rounded-xl shadow-lg">
+    <div className="w-full max-w-md mx-auto mt-6 flex flex-col h-full bg-gray-900 bg-opacity-60 rounded-xl shadow-lg">
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {loading ? (
           <div className="text-purple-200">Chargement...</div>
