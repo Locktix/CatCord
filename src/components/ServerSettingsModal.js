@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { auth, db, storage } from "../firebase";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import InviteModal from './InviteModal';
 
 export default function ServerSettingsModal({ serverId, onClose }) {
   const user = auth.currentUser;
@@ -12,6 +13,7 @@ export default function ServerSettingsModal({ serverId, onClose }) {
   const [uploadTaskRef, setUploadTaskRef] = useState(null);
   const [showUploadCanceled, setShowUploadCanceled] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
 
   useEffect(() => {
     if (!serverId) return;
@@ -153,6 +155,17 @@ export default function ServerSettingsModal({ serverId, onClose }) {
             />
           </div>
 
+          {/* Inviter des membres */}
+          <div>
+            <label className="block text-sm font-medium text-purple-200 mb-2">Inviter des membres</label>
+            <button
+              onClick={() => setShowInvite(true)}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded font-semibold"
+            >
+              Inviter un membre
+            </button>
+          </div>
+
           {/* Bouton sauvegarder */}
           <div className="flex gap-3 pt-4">
             <button
@@ -183,6 +196,11 @@ export default function ServerSettingsModal({ serverId, onClose }) {
               >OK</button>
             </div>
           </div>
+        )}
+
+        {/* Modal d'invitation */}
+        {showInvite && (
+          <InviteModal serverId={serverId} onClose={() => setShowInvite(false)} />
         )}
       </div>
     </div>
