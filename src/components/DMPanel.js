@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useContext } from "react";
 import { auth, db, storage } from "../firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion, deleteDoc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { useNotifications } from "./NotificationSystem";
 import CallModal from "./CallModal";
+import { AvatarShapeContext } from "./SettingsModal";
 
 export default function DMPanel({ dmId, onBack }) {
   const user = auth.currentUser;
@@ -25,6 +26,7 @@ export default function DMPanel({ dmId, onBack }) {
   const { addNotification } = useNotifications();
   const lastMessageTimeRef = useRef(null);
   const [hasActiveCall, setHasActiveCall] = useState(false); // Pour désactiver le bouton Appeler
+  const avatarShape = useContext(AvatarShapeContext);
 
   useEffect(() => {
     if (!dmId || typeof dmId !== 'string') {
@@ -245,7 +247,7 @@ export default function DMPanel({ dmId, onBack }) {
         )}
         {otherUser && (
           <>
-            <img src={otherUser.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${otherUser.uid}`} alt="avatar" className="w-8 h-8 rounded-full object-cover border-2 border-indigo-500" />
+            <img src={otherUser.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${otherUser.uid}`} alt="avatar" className={`w-8 h-8 object-cover border-2 border-indigo-500 ${avatarShape === 'round' ? 'rounded-full' : 'rounded'}`} />
             <span>DM avec {otherUser.pseudo ? `${otherUser.pseudo}${otherUser.discriminator ? '#' + otherUser.discriminator : ''}` : otherUser.uid}</span>
             <button 
               onClick={() => setShowCall(true)} 

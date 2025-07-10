@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useContext } from "react";
 import { db, auth, storage } from "../firebase";
 import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, doc, getDoc, deleteDoc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useNotifications } from "./NotificationSystem";
+import { AvatarShapeContext } from "./SettingsModal";
 
 const statusColors = {
   online: "bg-green-500",
@@ -25,6 +26,7 @@ export default function MessageList({ channelId, serverOwner, serverAdmins }) {
   const { addNotification } = useNotifications();
   const lastMessageTimeRef = useRef(null);
   const [messageToDelete, setMessageToDelete] = useState(null);
+  const avatarShape = useContext(AvatarShapeContext);
 
   useEffect(() => {
     if (!channelId) return;
@@ -216,7 +218,7 @@ export default function MessageList({ channelId, serverOwner, serverAdmins }) {
                     <img
                       src={p.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${msg.authorId}`}
                       alt="avatar"
-                      className="w-8 h-8 rounded-full object-cover border-2 border-indigo-500"
+                      className={`w-8 h-8 object-cover border-2 border-indigo-500 ${avatarShape === 'round' ? 'rounded-full' : 'rounded'}`}
                     />
                     <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border-2 border-gray-900 ${statusColors[p.status] || 'bg-gray-400'}`}></span>
                   </div>
@@ -276,7 +278,7 @@ export default function MessageList({ channelId, serverOwner, serverAdmins }) {
                     <img
                       src={p.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${msg.authorId}`}
                       alt="avatar"
-                      className="w-8 h-8 rounded-full object-cover border-2 border-indigo-500"
+                      className={`w-8 h-8 object-cover border-2 border-indigo-500 ${avatarShape === 'round' ? 'rounded-full' : 'rounded'}`}
                     />
                     <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border-2 border-gray-900 ${statusColors[p.status] || 'bg-gray-400'}`}></span>
                   </div>

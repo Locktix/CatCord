@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { auth, db, storage } from "../firebase";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { AvatarShapeContext } from "./SettingsModal";
 
 const statusOptions = [
   { value: "online", label: "En ligne" },
@@ -17,6 +18,7 @@ export default function UserProfile() {
   const [avatarFile, setAvatarFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
+  const avatarShape = useContext(AvatarShapeContext);
 
   const predefinedAvatars = [
     `https://api.dicebear.com/7.x/thumbs/svg?seed=cat1`,
@@ -138,7 +140,7 @@ export default function UserProfile() {
                 <img
                   src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${user.uid}`}
                   alt="avatar"
-                  className="w-24 h-24 rounded-full object-cover border-4 border-indigo-500 shadow-lg bg-gray-900"
+                  className={`w-32 h-32 object-cover border-4 border-indigo-500 mx-auto mb-4 ${avatarShape === 'round' ? 'rounded-full' : 'rounded'}`}
                 />
                 {profile.avatar && (
                   <button type="button" onClick={handleDeleteAvatar} className="absolute bottom-0 right-0 bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded-full shadow-lg">Supprimer</button>
@@ -159,7 +161,7 @@ export default function UserProfile() {
                   title={`Avatar ${i + 1}`}
                   disabled={saving}
                 >
-                  <img src={url} alt={`avatar ${i + 1}`} className="w-12 h-12 rounded-full object-cover" />
+                  <img src={url} alt={`avatar ${i + 1}`} className={`w-12 h-12 object-cover ${avatarShape === 'round' ? 'rounded-full' : 'rounded'} border-2 ${profile.avatar === url ? 'border-indigo-500 ring-2 ring-indigo-400' : 'border-transparent'} hover:bg-gray-800 transition`} />
                 </button>
               ))}
             </div>

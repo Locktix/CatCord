@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { auth, db } from "../firebase";
 import { collection, query, where, getDocs, doc, getDoc, addDoc, onSnapshot } from "firebase/firestore";
+import { AvatarShapeContext } from "./SettingsModal";
 
 export default function InviteModal({ serverId, onClose }) {
   const user = auth.currentUser;
@@ -9,6 +10,7 @@ export default function InviteModal({ serverId, onClose }) {
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const avatarShape = useContext(AvatarShapeContext);
 
   // Récupère la liste d'amis
   useEffect(() => {
@@ -104,6 +106,7 @@ export default function InviteModal({ serverId, onClose }) {
 function FriendInviteItem({ uid, onInvite }) {
   const [profile, setProfile] = useState(null);
   const [inviting, setInviting] = useState(false);
+  const avatarShape = useContext(AvatarShapeContext);
   
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "users", uid), (snap) => {
@@ -125,7 +128,7 @@ function FriendInviteItem({ uid, onInvite }) {
       <img 
         src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${uid}`} 
         alt="avatar" 
-        className="w-8 h-8 rounded-full object-cover border-2 border-indigo-500" 
+        className={`w-8 h-8 object-cover border-2 border-indigo-500 ${avatarShape === 'round' ? 'rounded-full' : 'rounded'}`} 
       />
       <div className="flex-1">
         <span className="font-semibold text-white">{profile.pseudo}</span>

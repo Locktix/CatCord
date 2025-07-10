@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { auth, db } from "../firebase";
 import { doc, onSnapshot } from "firebase/firestore";
+import { AvatarShapeContext } from "./SettingsModal";
 
 const statusColors = {
   online: "bg-green-500",
@@ -12,6 +13,7 @@ const statusColors = {
 export default function ProfileBadge({ onEdit }) {
   const user = auth.currentUser;
   const [profile, setProfile] = useState({ pseudo: "", avatar: "", status: "offline" });
+  const avatarShape = useContext(AvatarShapeContext);
 
   useEffect(() => {
     if (!user) return;
@@ -29,7 +31,7 @@ export default function ProfileBadge({ onEdit }) {
         <img
           src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${user.uid}`}
           alt="avatar"
-          className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500"
+          className={`w-10 h-10 object-cover border-2 border-indigo-500 ${avatarShape === 'round' ? 'rounded-full' : 'rounded'}`}
         />
         <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-gray-800 ${statusColors[profile.status] || 'bg-gray-400'}`}></span>
       </div>

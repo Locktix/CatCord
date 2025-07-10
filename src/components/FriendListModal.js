@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { auth, db } from "../firebase";
 import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, getDoc, deleteDoc, getDocs } from "firebase/firestore";
+import { AvatarShapeContext } from "./SettingsModal";
 
 export default function FriendListModal({ onClose }) {
   const user = auth.currentUser;
@@ -13,6 +14,7 @@ export default function FriendListModal({ onClose }) {
   const [suggestions, setSuggestions] = useState([]);
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [openDM, setOpenDM] = useState(null);
+  const avatarShape = useContext(AvatarShapeContext);
 
   // Récupère la liste d'amis
   useEffect(() => {
@@ -176,7 +178,7 @@ export default function FriendListModal({ onClose }) {
                   className="w-full text-left px-3 py-2 hover:bg-indigo-700 text-white flex items-center gap-2"
                   onClick={() => setAddValue(u.pseudo + '#' + (u.discriminator || '0000'))}
                 >
-                  <img src={u.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${u.id}`} alt="avatar" className="w-6 h-6 rounded-full object-cover mr-2" />
+                  <img src={u.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${u.id}`} alt="avatar" className={`w-6 h-6 object-cover mr-2 ${avatarShape === 'round' ? 'rounded-full' : 'rounded'}`} />
                   <span className="font-semibold">{u.pseudo}</span>
                   <span className="text-xs text-purple-300">#{u.discriminator || '0000'}</span>
                 </button>
@@ -244,6 +246,7 @@ export default function FriendListModal({ onClose }) {
 
 function FriendItem({ uid, onRemove, onClick, onInvite }) {
   const [profile, setProfile] = useState(null);
+  const avatarShape = useContext(AvatarShapeContext);
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "users", uid), (snap) => {
       setProfile(snap.data());
@@ -253,7 +256,7 @@ function FriendItem({ uid, onRemove, onClick, onInvite }) {
   if (!profile) return <span>Chargement...</span>;
   return (
     <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-800 rounded px-2 py-1" onClick={onClick}>
-      <img src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${uid}`} alt="avatar" className="w-8 h-8 rounded-full object-cover border-2 border-indigo-500" />
+      <img src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${uid}`} alt="avatar" className={`w-8 h-8 object-cover border-2 border-indigo-500 ${avatarShape === 'round' ? 'rounded-full' : 'rounded'}`} />
       <span className="font-semibold text-sm text-white">{profile.pseudo || profile.email || uid}</span>
       {profile.discriminator && <span className="text-xs text-purple-300 ml-1">#{profile.discriminator}</span>}
       <div className="flex gap-1 ml-auto">
@@ -270,6 +273,7 @@ function FriendItem({ uid, onRemove, onClick, onInvite }) {
 
 function FriendProfileModal({ uid, onClose, onRemove, onDM }) {
   const [profile, setProfile] = useState(null);
+  const avatarShape = useContext(AvatarShapeContext);
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "users", uid), (snap) => {
       setProfile(snap.data());
@@ -282,7 +286,7 @@ function FriendProfileModal({ uid, onClose, onRemove, onDM }) {
     <div className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-70">
       <div className="bg-gray-900 rounded-2xl p-8 shadow-2xl relative max-w-xs w-full flex flex-col items-center">
         <button className="absolute top-4 right-4 text-indigo-400 hover:underline text-xs" onClick={onClose}>Fermer</button>
-        <img src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${uid}`} alt="avatar" className="w-20 h-20 rounded-full object-cover border-2 border-indigo-500 mb-4" />
+        <img src={profile.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${uid}`} alt="avatar" className={`w-20 h-20 object-cover border-2 border-indigo-500 mb-4 ${avatarShape === 'round' ? 'rounded-full' : 'rounded'}`} />
         <div className="text-xl font-bold text-white mb-1">{profile.pseudo} <span className="text-purple-300">#{profile.discriminator}</span></div>
         <div className="text-sm text-purple-200 mb-2">Inscrit le : {createdAt}</div>
         {profile.status && <div className="text-xs text-green-400 mb-1">Statut : {profile.status}</div>}

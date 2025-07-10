@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { db } from "../firebase";
 import { doc, getDoc, updateDoc, arrayRemove, collection, query, where, getDocs, addDoc, onSnapshot } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { AvatarShapeContext } from "./SettingsModal";
 
 const statusColors = {
   online: "bg-green-500",
@@ -160,6 +161,7 @@ export default function MemberPanel({ serverId, onStartDM }) {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [friends, setFriends] = useState([]);
+  const avatarShape = useContext(AvatarShapeContext);
 
   useEffect(() => {
     if (!serverId) return;
@@ -263,7 +265,7 @@ export default function MemberPanel({ serverId, onStartDM }) {
         <img
           src={p.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${uid}`}
           alt="avatar"
-          className="w-8 h-8 rounded-full object-cover border-2 border-indigo-500"
+          className={`w-8 h-8 object-cover border-2 border-indigo-500 ${avatarShape === 'round' ? 'rounded-full' : 'rounded'}`}
         />
         <span className={`text-xs ${getRoleColor(uid)}`}>{getRoleIcon(uid)}</span>
         <span className="font-semibold text-sm">{p.pseudo || uid}</span>
