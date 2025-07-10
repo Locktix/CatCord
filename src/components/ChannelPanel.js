@@ -8,6 +8,7 @@ export default function ChannelPanel({ serverId, selectedChannel, setSelectedCha
   const [loading, setLoading] = useState(true);
   const [server, setServer] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const user = auth.currentUser;
 
   useEffect(() => {
@@ -21,7 +22,7 @@ export default function ChannelPanel({ serverId, selectedChannel, setSelectedCha
     return () => unsub();
   }, [serverId]);
 
-  // Vérifier si l'utilisateur est propriétaire du serveur
+  // Vérifier si l'utilisateur est propriétaire ou admin du serveur
   useEffect(() => {
     if (!serverId || !user) return;
     const fetchServer = async () => {
@@ -30,6 +31,7 @@ export default function ChannelPanel({ serverId, selectedChannel, setSelectedCha
         const serverData = serverDoc.data();
         setServer(serverData);
         setIsOwner(serverData.owner === user.uid);
+        setIsAdmin(serverData.admins && serverData.admins.includes(user.uid));
       }
     };
     fetchServer();
@@ -37,7 +39,7 @@ export default function ChannelPanel({ serverId, selectedChannel, setSelectedCha
 
   const handleCreateChannel = async (e) => {
     e.preventDefault();
-    if (!newChannelName.trim() || !isOwner) return;
+    if (!newChannelName.trim() || (!isOwner && !isAdmin)) return;
     const docRef = await addDoc(collection(db, "channels"), {
       name: newChannelName,
       serverId,
@@ -52,7 +54,7 @@ export default function ChannelPanel({ serverId, selectedChannel, setSelectedCha
   return (
     <div className="w-56 bg-gray-800 h-screen p-4 border-r border-gray-900 flex flex-col">
       <h3 className="text-lg font-bold mb-4">Salons</h3>
-      {isOwner && (
+      {(isOwner || isAdmin) && (
         <form onSubmit={handleCreateChannel} className="flex gap-2 mb-4">
           <input
             type="text"
