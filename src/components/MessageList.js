@@ -11,7 +11,7 @@ const statusColors = {
   offline: "bg-gray-400"
 };
 
-export default function MessageList({ channelId }) {
+export default function MessageList({ channelId, serverOwner, serverAdmins }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -24,6 +24,7 @@ export default function MessageList({ channelId }) {
   const bottomRef = useRef(null);
   const { addNotification } = useNotifications();
   const lastMessageTimeRef = useRef(null);
+  const [messageToDelete, setMessageToDelete] = useState(null);
 
   useEffect(() => {
     if (!channelId) return;
@@ -178,10 +179,16 @@ export default function MessageList({ channelId }) {
     }
   };
 
-  const handleDeleteMessage = async (msgId) => {
-    if (!window.confirm("Supprimer ce message ?")) return;
+  const canDelete = (msg) => {
+    if (!user) return false;
+    return msg.authorId === user.uid || user.uid === serverOwner || (serverAdmins && serverAdmins.includes(user.uid));
+  };
+
+  const handleDeleteMessage = async () => {
+    if (!messageToDelete) return;
     try {
-      await deleteDoc(doc(db, "messages", msgId));
+      await deleteDoc(doc(db, "messages", messageToDelete));
+      setMessageToDelete(null);
     } catch (error) {
       alert("Erreur lors de la suppression du message");
     }
@@ -199,6 +206,9 @@ export default function MessageList({ channelId }) {
         ) : (
           messages.map(msg => {
             const p = profiles[msg.authorId] || {};
+            let roleEmoji = "👤";
+            if (msg.authorId === serverOwner) roleEmoji = "👑";
+            else if (serverAdmins && serverAdmins.includes(msg.authorId)) roleEmoji = "🛡️";
             return (
               <div key={msg.id} className={`flex gap-2 items-start ${msg.authorId === user.uid ? 'justify-end' : ''}`}>
                 {msg.authorId !== user.uid && (
@@ -214,11 +224,12 @@ export default function MessageList({ channelId }) {
                 <div className={`p-2 rounded max-w-[70%] ${msg.authorId === user.uid ? 'bg-indigo-700 text-right ml-10' : 'bg-gray-800 text-left mr-2'}`}
                   style={{ position: 'relative' }}>
                   <div className="flex items-center gap-2 mb-1">
+                    <span className="text-lg">{roleEmoji}</span>
                     <span className="font-semibold text-sm text-purple-200">{p.pseudo || msg.author}</span>
                     <span className="text-xs text-purple-400 opacity-60">{msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString() : ''}</span>
-                    {msg.authorId === user.uid && (
+                    {canDelete(msg) && (
                       <button
-                        onClick={() => handleDeleteMessage(msg.id)}
+                        onClick={() => setMessageToDelete(msg.id)}
                         title="Supprimer le message"
                         className="ml-2 text-red-400 hover:text-red-600 text-lg focus:outline-none"
                         style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
@@ -285,6 +296,25 @@ export default function MessageList({ channelId }) {
               onClick={() => setShowUploadCanceled(false)}
               className="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded text-white font-bold"
             >OK</button>
+          </div>
+        </div>
+      )}
+      {/* Overlay de confirmation suppression message */}
+      {messageToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+          <div className="bg-gray-900 rounded-xl p-8 shadow-xl flex flex-col items-center max-w-sm w-full">
+            <div className="text-lg text-red-400 font-bold mb-4">Supprimer le message ?</div>
+            <div className="text-purple-200 mb-6 text-center">Cette action est <b>irréversible</b>.<br/>Le message sera définitivement supprimé.</div>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={handleDeleteMessage}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold"
+              >Supprimer</button>
+              <button
+                onClick={() => setMessageToDelete(null)}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded font-semibold"
+              >Annuler</button>
+            </div>
           </div>
         </div>
       )}
