@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { db, auth, storage } from "../firebase";
-import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, doc, getDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, doc, getDoc, deleteDoc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useNotifications } from "./NotificationSystem";
 
@@ -178,11 +178,20 @@ export default function MessageList({ channelId }) {
     }
   };
 
+  const handleDeleteMessage = async (msgId) => {
+    if (!window.confirm("Supprimer ce message ?")) return;
+    try {
+      await deleteDoc(doc(db, "messages", msgId));
+    } catch (error) {
+      alert("Erreur lors de la suppression du message");
+    }
+  };
+
   if (!channelId) return null;
 
   return (
-    <div className="w-full max-w-md mx-auto mt-6 flex flex-col h-full bg-gray-900 bg-opacity-60 rounded-xl shadow-lg">
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+    <div className="w-full flex flex-col h-full bg-gray-900 bg-opacity-60 rounded-xl shadow-lg">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2 hide-scrollbar">
         {loading ? (
           <div className="text-purple-200">Chargement...</div>
         ) : messages.length === 0 ? (
@@ -202,10 +211,21 @@ export default function MessageList({ channelId }) {
                     <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border-2 border-gray-900 ${statusColors[p.status] || 'bg-gray-400'}`}></span>
                   </div>
                 )}
-                <div className={`p-2 rounded max-w-[70%] ${msg.authorId === user.uid ? 'bg-indigo-700 text-right ml-10' : 'bg-gray-800 text-left mr-2'}`}>
+                <div className={`p-2 rounded max-w-[70%] ${msg.authorId === user.uid ? 'bg-indigo-700 text-right ml-10' : 'bg-gray-800 text-left mr-2'}`}
+                  style={{ position: 'relative' }}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-semibold text-sm text-purple-200">{p.pseudo || msg.author}</span>
                     <span className="text-xs text-purple-400 opacity-60">{msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString() : ''}</span>
+                    {msg.authorId === user.uid && (
+                      <button
+                        onClick={() => handleDeleteMessage(msg.id)}
+                        title="Supprimer le message"
+                        className="ml-2 text-red-400 hover:text-red-600 text-lg focus:outline-none"
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                      >
+                        🗑️
+                      </button>
+                    )}
                   </div>
                   <div className="text-base break-words">
                     {msg.fileUrl ? (
